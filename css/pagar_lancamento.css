@@ -165,6 +165,40 @@ body {
   margin-right: 5px;
 }
 
+.status-topo {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-topo i {
+  font-size: 11px;
+}
+
+.status-pendente {
+  color: #c2410c;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.status-atrasada {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.status-pago {
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
 .warning-box {
   display: flex;
   gap: 12px;

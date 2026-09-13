@@ -311,6 +311,129 @@ body {
   }
 }
 
+/* =========================================================
+   PARCELAMENTOS
+========================================================= */
+
+.parcelamentos-card {
+  margin-bottom: 20px;
+}
+
+.parcelamentos-card .card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.parcelamentos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 24px 20px;
+}
+
+.parcelamento-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 18px;
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  background: var(--branco);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.parcelamento-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.parcelamento-info {
+  min-width: 0;
+}
+
+.parcelamento-titulo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.parcelamento-titulo strong {
+  color: var(--texto);
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.parcelamento-titulo span {
+  color: var(--texto-secundario);
+  font-size: 12px;
+}
+
+.parcelamento-detalhes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 9px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.parcelamento-detalhes strong {
+  color: var(--texto);
+}
+
+.parcelamento-progresso {
+  width: 100%;
+  max-width: 700px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.parcelamento-progresso-barra {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--verde);
+  transition: width 0.2s ease;
+}
+
+.parcelamento-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .parcelamentos-card .card-header {
+    flex-direction: column;
+  }
+
+  .parcelamentos-lista {
+    padding: 0 16px 16px;
+  }
+
+  .parcelamento-item {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .parcelamento-progresso {
+    max-width: none;
+  }
+
+  .parcelamento-acoes {
+    width: 100%;
+  }
+}
+
 .resumo-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -816,61 +939,6 @@ body {
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fecaca;
-}
-
-/* =========================================================
-   BOTÃO PAGAR PARCELA
-   ========================================================= */
-
-.form-pagar-parcela {
-  display: inline-flex;
-  margin: 0;
-  padding: 0;
-}
-
-.btn-pagar-financeiro {
-  border: 0;
-  cursor: pointer;
-  background: #16a34a;
-  color: #ffffff;
-}
-
-.btn-pagar-financeiro:hover {
-  background: #15803d;
-  transform: translateY(-1px);
-}
-
-.btn-pagar-financeiro:active {
-  transform: translateY(0);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Status da parcela atrasada
-|--------------------------------------------------------------------------
-*/
-
-.status-atrasada {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Botão de pagar parcela
-|--------------------------------------------------------------------------
-*/
-
-.btn-pagar-financeiro {
-  border: 0;
-  cursor: pointer;
-  background: #16a34a;
-  color: #ffffff;
-}
-
-.btn-pagar-financeiro:hover {
-  background: #15803d;
 }
 
 @media (max-width: 1200px) {

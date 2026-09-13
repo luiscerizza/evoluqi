@@ -2,15 +2,20 @@
   --azul: #2563eb;
   --azul-hover: #1d4ed8;
   --azul-claro: #eff6ff;
+
   --verde: #16a34a;
   --verde-claro: #dcfce7;
+
   --vermelho: #dc2626;
   --vermelho-claro: #fee2e2;
+
   --texto: #17233d;
   --texto-secundario: #64748b;
+
   --borda: #e2e8f0;
   --fundo: #f8fafc;
   --branco: #ffffff;
+
   --sombra: 0 2px 10px rgba(15, 23, 42, 0.06);
 }
 
@@ -184,6 +189,16 @@ body {
   color: #92400e;
 }
 
+.status-atrasada {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background-color: #fde2e2;
+  color: #c62828;
+}
+
 .tipo {
   display: inline-flex;
   align-items: center;
@@ -282,6 +297,136 @@ body {
   display: none;
 }
 
+/* =================================
+   Lista de parcelas
+================================= */
+
+.parcelas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.parcela-item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 20px;
+
+  padding: 14px 16px;
+
+  border: 1px solid var(--borda);
+  border-radius: 9px;
+
+  background: var(--branco);
+
+  transition: 0.2s ease;
+}
+
+.parcela-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.parcela-selecionada {
+  border-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.parcela-numero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.parcela-numero strong {
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.parcela-numero span {
+  color: var(--texto-secundario);
+  font-size: 12px;
+}
+
+.parcela-dados {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  min-width: 0;
+}
+
+.parcela-dados > div {
+  min-width: 110px;
+}
+
+.parcela-dados span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--texto-secundario);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.parcela-dados strong {
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.parcela-status {
+  white-space: nowrap;
+}
+
+.parcela-acoes {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/*
+   Os botões das parcelas usam .btn no HTML.
+   Aqui reduzimos o tamanho deles sem alterar
+   os botões principais do cabeçalho.
+*/
+
+.parcela-acoes .btn {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.parcela-acoes .btn-secondary {
+  border: 1px solid var(--borda);
+  background: var(--branco);
+  color: var(--azul);
+}
+
+.parcela-acoes .btn-secondary:hover {
+  border-color: var(--azul);
+  background: var(--azul-claro);
+}
+
+.parcela-acoes .btn-pagar {
+  border: 1px solid var(--verde);
+  background: var(--verde);
+  color: #fff;
+}
+
+.parcela-acoes .btn-pagar:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+
+/* =================================
+   Responsividade
+================================= */
+
 @media (max-width: 760px) {
   .container {
     width: calc(100% - 28px);
@@ -310,5 +455,31 @@ body {
   .card-header,
   .card-body {
     padding: 17px;
+  }
+
+  /* ================================
+     Parcelas no celular
+  ================================ */
+
+  .parcela-item {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .parcela-dados {
+    gap: 14px;
+  }
+
+  .parcela-dados > div {
+    min-width: 100px;
+  }
+
+  .parcela-status {
+    justify-self: flex-start;
+  }
+
+  .parcela-acoes {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }

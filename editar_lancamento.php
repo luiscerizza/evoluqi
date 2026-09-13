@@ -103,6 +103,17 @@ try {
         header('Location: financeiro.php?erro=lancamento_nao_editavel');
         exit;
     }
+
+    // Se qualquer parcela já foi paga, o valor do lançamento fica bloqueado.
+    $stmtParcelaPaga = $pdo->prepare("
+        SELECT 1
+        FROM lancamentos_parcelas
+        WHERE lancamento_id = ?
+          AND status = 'paga'
+        LIMIT 1
+    ");
+    $stmtParcelaPaga->execute([$id]);
+    $temParcelaPaga = (bool) $stmtParcelaPaga->fetchColumn();
 } catch (Throwable $e) {
     error_log('editar_lancamento.php: ' . $e->getMessage());
     header('Location: financeiro.php?erro=erro_ao_carregar_lancamento');
@@ -188,6 +199,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ) {
                 throw new RuntimeException(
                     'Este lançamento está vinculado a outro registro e não pode ser editado aqui.'
+                );
+            }
+
+            // Se qualquer parcela já foi paga, o valor não pode ser alterado.
+            $stmtParcelaPagaLock = $pdo->prepare("
+                SELECT 1
+                FROM lancamentos_parcelas
+                WHERE lancamento_id = ?
+                  AND status = 'paga'
+                LIMIT 1
+            ");
+            $stmtParcelaPagaLock->execute([$id]);
+            $temParcelaPagaLock = (bool) $stmtParcelaPagaLock->fetchColumn();
+
+            if (
+                $temParcelaPagaLock &&
+                $valor !== null &&
+                (float) $valor !== (float) $lancamentoLocked['valor']
+            ) {
+                throw new RuntimeException(
+                    'O valor não pode ser alterado porque este lançamento já possui uma parcela paga.'
+                );
+            }
+
+            // Se qualquer parcela já foi paga, o tipo também não pode ser alterado.
+            if (
+                $temParcelaPagaLock &&
+                $tipo !== $lancamentoLocked['tipo']
+            ) {
+                throw new RuntimeException(
+                    'O tipo não pode ser alterado porque este lançamento já possui uma parcela paga.'
                 );
             }
 
@@ -313,7 +355,11 @@ $csrfToken = $_SESSION['csrf_token'];
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="tipo">Tipo <span>*</span></label>
-                        <select name="tipo" id="tipo" required>
+                        <select
+                            name="tipo"
+                            id="tipo"
+                            required
+                            <?= $temParcelaPaga ? 'disabled' : '' ?>>
                             <option value="receita" <?= $lancamento['tipo'] === 'receita' ? 'selected' : '' ?>>
                                 Receita
                             </option>
@@ -321,6 +367,16 @@ $csrfToken = $_SESSION['csrf_token'];
                                 Despesa
                             </option>
                         </select>
+
+                        <?php if ($temParcelaPaga): ?>
+                            <input
+                                type="hidden"
+                                name="tipo"
+                                value="<?= escapar((string)$lancamento['tipo']) ?>">
+                            <small>
+                                O tipo está bloqueado porque este lançamento já possui uma parcela paga.
+                            </small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-group">
@@ -377,9 +433,17 @@ $csrfToken = $_SESSION['csrf_token'];
                                 id="valor"
                                 inputmode="decimal"
                                 value="<?= escapar(valorParaFormulario((string)$lancamento['valor'])) ?>"
+                                <?= $temParcelaPaga ? 'readonly' : '' ?>
                                 required>
                         </div>
-                        <small>Use o formato brasileiro, por exemplo: 1.500,50</small>
+
+                        <?php if ($temParcelaPaga): ?>
+                            <small>
+                                O valor está bloqueado porque este lançamento já possui uma parcela paga.
+                            </small>
+                        <?php else: ?>
+                            <small>Use o formato brasileiro, por exemplo: 1.500,50</small>
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-group">
@@ -419,7 +483,7 @@ $csrfToken = $_SESSION['csrf_token'];
         (function() {
             const campoValor = document.getElementById('valor');
 
-            if (!campoValor) {
+            if (!campoValor || campoValor.readOnly) {
                 return;
             }
 

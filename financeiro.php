@@ -194,6 +194,20 @@ if ($mes_ativo && $mes_filtro !== '') {
 $where_manual = [];
 $params_manual = [];
 
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE DATA DOS LANÇAMENTOS MANUAIS
+|--------------------------------------------------------------------------
+|
+| Lançamento pago:
+|     usa data_pagamento.
+|
+| Lançamento pendente:
+|     usa data.
+|
+*/
+
 if ($data_inicio !== null && $data_fim !== null) {
 
     $where_manual[] = "
@@ -211,49 +225,81 @@ if ($data_inicio !== null && $data_fim !== null) {
     $params_manual[':data_fim'] = $data_fim;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE TIPO
+|--------------------------------------------------------------------------
+*/
+
 if ($tipo_filtro !== 'todos') {
 
-    $where_manual[] = "tipo = :tipo";
+    $where_manual[] = 'tipo = :tipo';
 
     $params_manual[':tipo'] = $tipo_filtro;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE PACIENTE E STATUS
+|--------------------------------------------------------------------------
+|
+| Lançamentos manuais não possuem paciente vinculado.
+|
+*/
+
 if ($paciente_filtro > 0 || $status_filtro === 'atrasada') {
+
     $where_manual[] = '1 = 0';
 } elseif ($status_filtro !== 'todos') {
+
     $where_manual[] = 'status = :status_manual';
+
     $params_manual[':status_manual'] = $status_filtro;
 }
 
-/*
- * Orçamentos aceitos são exibidos a partir da tabela `parcelas`, que é a
- * fonte oficial de verdade do financeiro do orçamento.
- *
- * Algumas versões anteriores do fluxo também criavam um registro em
- * `lancamentos_financeiros` com `orcamento_id` preenchido. Se esse registro
- * for carregado junto com `parcelas`, a mesma parcela aparece duas vezes.
- * Portanto, lançamentos vinculados a orçamento não entram nesta consulta;
- * eles serão montados abaixo exclusivamente a partir de `parcelas`.
- */
-$where_manual[] = '(orcamento_id IS NULL OR orcamento_id = 0)';
-
-/*
- * Parcelas de procedimentos também possuem um lançamento financeiro
- * vinculado por `procedimento_id`. Esses lançamentos não devem entrar
- * como lançamentos manuais, pois serão montados abaixo a partir de
- * `parcelas`, evitando duplicidade no financeiro.
- */
-$where_manual[] = '(procedimento_id IS NULL OR procedimento_id = 0)';
-
-$where_manual_sql = 'WHERE ' . implode(' AND ', $where_manual);
 
 /*
 |--------------------------------------------------------------------------
-| BUSCAR LANÇAMENTOS MANUAIS
+| NÃO TRAZER LANÇAMENTOS VINCULADOS A ORÇAMENTOS
 |--------------------------------------------------------------------------
 */
 
-$stmt_manual = $pdo->prepare("
+$where_manual[] =
+    '(orcamento_id IS NULL OR orcamento_id = 0)';
+
+
+/*
+|--------------------------------------------------------------------------
+| NÃO TRAZER LANÇAMENTOS VINCULADOS A PROCEDIMENTOS
+|--------------------------------------------------------------------------
+*/
+
+$where_manual[] =
+    '(procedimento_id IS NULL OR procedimento_id = 0)';
+
+
+/*
+|--------------------------------------------------------------------------
+| BUSCAR LANÇAMENTOS MANUAIS À VISTA
+|--------------------------------------------------------------------------
+|
+| Lançamentos com apenas uma parcela continuam sendo representados
+| diretamente pelo registro de `lancamentos_financeiros`.
+|
+*/
+
+$where_manual_avista = $where_manual;
+$params_manual_avista = $params_manual;
+
+$where_manual_avista[] =
+    '(parcelas IS NULL OR parcelas <= 1)';
+
+$where_manual_avista_sql =
+    'WHERE ' . implode(' AND ', $where_manual_avista);
+
+$stmt_manual_avista = $pdo->prepare("
     SELECT
         id,
         tipo,
@@ -268,7 +314,7 @@ $stmt_manual = $pdo->prepare("
         observacoes,
         orcamento_id
     FROM lancamentos_financeiros
-    $where_manual_sql
+    $where_manual_avista_sql
     ORDER BY
         CASE
             WHEN LOWER(TRIM(COALESCE(status, ''))) = 'pago'
@@ -279,9 +325,383 @@ $stmt_manual = $pdo->prepare("
         id DESC
 ");
 
-$stmt_manual->execute($params_manual);
+$stmt_manual_avista->execute($params_manual_avista);
 
-$lancamentos_manuais = $stmt_manual->fetchAll(PDO::FETCH_ASSOC);
+$lancamentos_manuais_avista =
+    $stmt_manual_avista->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| BUSCAR PARCELAS DOS LANÇAMENTOS MANUAIS
+|--------------------------------------------------------------------------
+|
+| Para lançamentos parcelados, o registro de
+| `lancamentos_financeiros` é apenas o registro-pai.
+|
+| Cada registro de `lancamentos_parcelas` será transformado
+| em uma movimentação individual no Financeiro.
+|
+*/
+
+$where_manual_parcelas = [];
+$params_manual_parcelas = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE TIPO
+|--------------------------------------------------------------------------
+*/
+
+if ($tipo_filtro !== 'todos') {
+
+    $where_manual_parcelas[] =
+        'lf.tipo = :tipo_parcela';
+
+    $params_manual_parcelas[':tipo_parcela'] =
+        $tipo_filtro;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE PACIENTE
+|--------------------------------------------------------------------------
+|
+| Lançamentos manuais não possuem paciente.
+|
+*/
+
+if ($paciente_filtro > 0) {
+
+    $where_manual_parcelas[] = '1 = 0';
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE STATUS
+|--------------------------------------------------------------------------
+*/
+
+if ($status_filtro === 'pago') {
+
+    $where_manual_parcelas[] = "
+        LOWER(TRIM(lp.status)) = 'paga'
+    ";
+} elseif ($status_filtro === 'pendente') {
+
+    $where_manual_parcelas[] = "
+        LOWER(TRIM(lp.status)) = 'pendente'
+        AND lp.vencimento >= CURDATE()
+    ";
+} elseif ($status_filtro === 'atrasada') {
+
+    $where_manual_parcelas[] = "
+        (
+            LOWER(TRIM(lp.status)) = 'atrasada'
+            OR (
+                LOWER(TRIM(lp.status)) = 'pendente'
+                AND lp.vencimento < CURDATE()
+            )
+        )
+    ";
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| FILTRO DE DATA
+|--------------------------------------------------------------------------
+|
+| Parcela paga:
+|     usa data_pagamento.
+|
+| Parcela não paga:
+|     usa vencimento.
+|
+*/
+
+if ($data_inicio !== null && $data_fim !== null) {
+
+    $where_manual_parcelas[] = "
+        DATE(
+            CASE
+                WHEN LOWER(TRIM(lp.status)) = 'paga'
+                     AND lp.data_pagamento IS NOT NULL
+                    THEN lp.data_pagamento
+                ELSE lp.vencimento
+            END
+        ) BETWEEN :parcela_data_inicio AND :parcela_data_fim
+    ";
+
+    $params_manual_parcelas[':parcela_data_inicio'] =
+        $data_inicio;
+
+    $params_manual_parcelas[':parcela_data_fim'] =
+        $data_fim;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| GARANTIR QUE O LANÇAMENTO É PARCELADO
+|--------------------------------------------------------------------------
+*/
+
+$where_manual_parcelas[] =
+    'lf.parcelas > 1';
+
+
+/*
+|--------------------------------------------------------------------------
+| NÃO TRAZER LANÇAMENTOS VINCULADOS A ORÇAMENTOS
+|--------------------------------------------------------------------------
+*/
+
+$where_manual_parcelas[] =
+    '(lf.orcamento_id IS NULL OR lf.orcamento_id = 0)';
+
+
+/*
+|--------------------------------------------------------------------------
+| NÃO TRAZER LANÇAMENTOS VINCULADOS A PROCEDIMENTOS
+|--------------------------------------------------------------------------
+*/
+
+$where_manual_parcelas[] =
+    '(lf.procedimento_id IS NULL OR lf.procedimento_id = 0)';
+
+
+$where_manual_parcelas_sql =
+    'WHERE ' . implode(' AND ', $where_manual_parcelas);
+
+
+/*
+|--------------------------------------------------------------------------
+| CONSULTA DAS PARCELAS MANUAIS
+|--------------------------------------------------------------------------
+*/
+
+$stmt_manual_parcelas = $pdo->prepare("
+    SELECT
+        lf.id AS lancamento_id,
+        lf.tipo,
+        lf.categoria,
+        lf.descricao,
+        lf.forma_pagamento,
+        lf.observacoes,
+        lf.parcelas AS total_parcelas,
+
+        lp.id AS parcela_id,
+        lp.numero_parcela,
+        lp.valor,
+        lp.vencimento,
+        LOWER(TRIM(lp.status)) AS status_parcela,
+        lp.data_pagamento
+
+    FROM lancamentos_parcelas lp
+
+    INNER JOIN lancamentos_financeiros lf
+        ON lf.id = lp.lancamento_id
+
+    $where_manual_parcelas_sql
+
+    ORDER BY
+        CASE
+            WHEN LOWER(TRIM(lp.status)) = 'paga'
+                 AND lp.data_pagamento IS NOT NULL
+                THEN lp.data_pagamento
+            ELSE lp.vencimento
+        END DESC,
+        lp.id DESC
+");
+
+$stmt_manual_parcelas->execute(
+    $params_manual_parcelas
+);
+
+$parcelas_lancamentos_manuais =
+    $stmt_manual_parcelas->fetchAll(PDO::FETCH_ASSOC);
+
+
+/*
+|--------------------------------------------------------------------------
+| JUNTAR LANÇAMENTOS À VISTA E PARCELAS MANUAIS
+|--------------------------------------------------------------------------
+*/
+
+$lancamentos_manuais = [];
+
+
+/*
+|--------------------------------------------------------------------------
+| LANÇAMENTOS À VISTA
+|--------------------------------------------------------------------------
+*/
+
+foreach ($lancamentos_manuais_avista as $lancamento) {
+
+    $lancamentos_manuais[] = $lancamento;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| PARCELAS MANUAIS
+|--------------------------------------------------------------------------
+*/
+
+foreach ($parcelas_lancamentos_manuais as $parcela) {
+
+    $status_parcela = strtolower(
+        trim((string)($parcela['status_parcela'] ?? ''))
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NORMALIZAR STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    if ($status_parcela === 'paga') {
+
+        $status_financeiro = 'pago';
+
+        $data_movimentacao =
+            $parcela['data_pagamento'];
+    } elseif (
+        $status_parcela === 'atrasada'
+        || (
+            $status_parcela === 'pendente'
+            && !empty($parcela['vencimento'])
+            && $parcela['vencimento'] < date('Y-m-d')
+        )
+    ) {
+
+        $status_financeiro = 'atrasada';
+
+        $data_movimentacao =
+            $parcela['vencimento'];
+    } else {
+
+        $status_financeiro = 'pendente';
+
+        $data_movimentacao =
+            $parcela['vencimento'];
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚMERO DA PARCELA
+    |--------------------------------------------------------------------------
+    */
+
+    $numero_parcela =
+        (int)$parcela['numero_parcela'];
+
+    $total_parcelas = max(
+        1,
+        (int)($parcela['total_parcelas'] ?? 1)
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DESCRIÇÃO
+    |--------------------------------------------------------------------------
+    */
+
+    $descricao = sprintf(
+        '%s - Parcela %d/%d',
+        $parcela['descricao'],
+        $numero_parcela,
+        $total_parcelas
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADICIONAR PARCELA COMO MOVIMENTAÇÃO
+    |--------------------------------------------------------------------------
+    */
+
+    $lancamentos_manuais[] = [
+
+        /*
+        | ID do lançamento-pai.
+        */
+        'id' =>
+        (int)$parcela['lancamento_id'],
+
+        'tipo' =>
+        $parcela['tipo'],
+
+        'categoria' =>
+        $parcela['categoria'],
+
+        'descricao' =>
+        $descricao,
+
+        'data' =>
+        $data_movimentacao,
+
+        'data_pagamento' =>
+        $parcela['data_pagamento'],
+
+        'forma_pagamento' =>
+        $parcela['forma_pagamento']
+            ?? 'Não informado',
+
+        /*
+        | IMPORTANTE:
+        | usamos o valor individual da parcela.
+        */
+        'valor' =>
+        (float)$parcela['valor'],
+
+        'parcelas' =>
+        $total_parcelas,
+
+        'status' =>
+        $status_financeiro,
+
+        'observacoes' =>
+        $parcela['observacoes'],
+
+        'orcamento_id' =>
+        null,
+
+        'origem' =>
+        'lancamento',
+
+        /*
+        | ID REAL DA PARCELA.
+        | Será utilizado no próximo passo para
+        | realizar o pagamento individual.
+        */
+        'parcela_id' =>
+        (int)$parcela['parcela_id'],
+
+        'numero_parcela' =>
+        $numero_parcela,
+
+        'numero_orcamento' =>
+        null,
+
+        'paciente' =>
+        null,
+
+        'paciente_id' =>
+        null,
+
+        'procedimento_id' =>
+        null
+    ];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -502,15 +922,37 @@ foreach ($lancamentos_manuais as $lancamento) {
 
     $lancamento['origem'] = 'lancamento';
 
-    $lancamento['parcela_id'] = null;
+    /*
+    |--------------------------------------------------------------------------
+    | PRESERVAR O ID DA PARCELA
+    |--------------------------------------------------------------------------
+    |
+    | Lançamentos à vista não possuem parcela_id.
+    | Lançamentos parcelados possuem o ID da parcela individual.
+    |
+    | Não devemos sobrescrever esse valor com NULL.
+    |
+    */
 
-    $lancamento['numero_orcamento'] = null;
+    $lancamento['parcela_id'] =
+        $lancamento['parcela_id'] ?? null;
 
-    $lancamento['paciente'] = null;
-    $lancamento['paciente_id'] = null;
-    $lancamento['procedimento_id'] = null;
 
-    $lancamentos[] = $lancamento;
+    $lancamento['numero_orcamento'] =
+        null;
+
+    $lancamento['paciente'] =
+        null;
+
+    $lancamento['paciente_id'] =
+        null;
+
+    $lancamento['procedimento_id'] =
+        null;
+
+
+    $lancamentos[] =
+        $lancamento;
 }
 
 /*
@@ -688,6 +1130,92 @@ foreach ($lancamentos as $lancamento) {
 }
 
 $lucro = $receitas - $despesas;
+
+/*
+|--------------------------------------------------------------------------
+| RESUMO DOS LANÇAMENTOS PARCELADOS
+|--------------------------------------------------------------------------
+|
+| O lançamento-pai não entra como movimentação financeira.
+| Ele será exibido apenas como agrupador das parcelas.
+|
+*/
+
+$parcelamentos = [];
+
+$ids_lancamentos_parcelados = [];
+
+foreach ($lancamentos as $lancamento) {
+    if (
+        !empty($lancamento['parcela_id']) &&
+        !empty($lancamento['id'])
+    ) {
+        $ids_lancamentos_parcelados[] = (int)$lancamento['id'];
+    }
+}
+
+$ids_lancamentos_parcelados = array_values(
+    array_unique($ids_lancamentos_parcelados)
+);
+
+if (!empty($ids_lancamentos_parcelados)) {
+
+    $placeholders = implode(
+        ',',
+        array_fill(
+            0,
+            count($ids_lancamentos_parcelados),
+            '?'
+        )
+    );
+
+    $stmt_parcelamentos = $pdo->prepare("
+        SELECT
+            lf.id,
+            lf.tipo,
+            lf.descricao,
+            lf.valor,
+            lf.parcelas,
+            lf.forma_pagamento,
+
+            COUNT(lp.id) AS total_parcelas,
+
+            SUM(
+                CASE
+                    WHEN LOWER(TRIM(lp.status)) = 'paga'
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS parcelas_pagas,
+
+            COALESCE(SUM(lp.valor), 0) AS valor_parcelado
+
+        FROM lancamentos_financeiros lf
+
+        INNER JOIN lancamentos_parcelas lp
+            ON lp.lancamento_id = lf.id
+
+        WHERE lf.id IN ($placeholders)
+
+        GROUP BY
+            lf.id,
+            lf.tipo,
+            lf.descricao,
+            lf.valor,
+            lf.parcelas,
+            lf.forma_pagamento
+
+        ORDER BY lf.id DESC
+    ");
+
+    $stmt_parcelamentos->execute(
+        $ids_lancamentos_parcelados
+    );
+
+    $parcelamentos = $stmt_parcelamentos->fetchAll(
+        PDO::FETCH_ASSOC
+    );
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -1113,6 +1641,133 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
             <!-- =========================================================
          CONTEÚDO
     ========================================================== -->
+
+            <?php if (!empty($parcelamentos)): ?>
+
+                <!-- =========================================================
+         PARCELAMENTOS
+    ========================================================== -->
+
+                <section class="card parcelamentos-card">
+
+                    <div class="card-header">
+
+                        <div>
+                            <h2>
+                                Parcelamentos
+                            </h2>
+
+                            <p>
+                                Lançamentos parcelados e andamento das parcelas.
+                            </p>
+                        </div>
+
+                        <span class="contador">
+                            <?= count($parcelamentos) ?>
+                            <?= count($parcelamentos) === 1
+                                ? 'parcelamento'
+                                : 'parcelamentos' ?>
+                        </span>
+
+                    </div>
+
+                    <div class="parcelamentos-lista">
+
+                        <?php foreach ($parcelamentos as $parcelamento): ?>
+
+                            <?php
+                            $totalParcelas = max(
+                                1,
+                                (int)$parcelamento['total_parcelas']
+                            );
+
+                            $parcelasPagas = (int)$parcelamento['parcelas_pagas'];
+
+                            $percentualPago = (
+                                $parcelasPagas / $totalParcelas
+                            ) * 100;
+                            ?>
+
+                            <article class="parcelamento-item">
+
+                                <div class="parcelamento-info">
+
+                                    <div class="parcelamento-titulo">
+
+                                        <strong>
+                                            <?= htmlspecialchars(
+                                                $parcelamento['descricao']
+                                            ) ?>
+                                        </strong>
+
+                                        <span>
+                                            Lançamento #<?= (int)$parcelamento['id'] ?>
+                                        </span>
+
+                                    </div>
+
+                                    <div class="parcelamento-detalhes">
+
+                                        <span>
+                                            Total:
+                                            <strong>
+                                                <?= moedaBR(
+                                                    $parcelamento['valor']
+                                                ) ?>
+                                            </strong>
+                                        </span>
+
+                                        <span>
+                                            <?= $parcelasPagas ?>
+                                            de
+                                            <?= $totalParcelas ?>
+                                            parcelas pagas
+                                        </span>
+
+                                    </div>
+
+                                    <div class="parcelamento-progresso">
+
+                                        <div
+                                            class="parcelamento-progresso-barra"
+                                            style="width: <?= $percentualPago ?>%;">
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="parcelamento-acoes">
+
+                                    <a
+                                        href="visualizar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
+                                        class="btn-acao"
+                                        title="Visualizar lançamento">
+
+                                        <i class="fa-regular fa-eye"></i>
+
+                                    </a>
+
+                                    <a
+                                        href="editar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
+                                        class="btn-acao"
+                                        title="Editar lançamento">
+
+                                        <i class="fa-solid fa-pen"></i>
+
+                                    </a>
+
+                                </div>
+
+                            </article>
+
+                        <?php endforeach; ?>
+
+                    </div>
+
+                </section>
+
+            <?php endif; ?>
 
             <section class="conteudo-grid">
 
@@ -1741,7 +2396,7 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
                                                 ): ?>
 
                                                     <a
-                                                        href="visualizar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
+                                                        href="visualizar_lancamento.php?id=<?= (int)$lancamento['id'] ?><?= !empty($lancamento['parcela_id']) ? '&amp;parcela_id=' . (int)$lancamento['parcela_id'] : '' ?>"
                                                         class="btn-acao"
                                                         title="Visualizar">
 
@@ -1749,14 +2404,16 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
 
                                                     </a>
 
-                                                    <a
-                                                        href="editar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
-                                                        class="btn-acao"
-                                                        title="Editar">
+                                                    <?php if (empty($lancamento['parcela_id'])): ?>
 
-                                                        <i class="fa-solid fa-pen"></i>
+                                                        <a
+                                                            href="editar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
+                                                            class="btn-acao"
+                                                            title="Editar">
+                                                            <i class="fa-solid fa-pen"></i>
+                                                        </a>
 
-                                                    </a>
+                                                    <?php endif; ?>
 
                                                     <?php if (
                                                         in_array(
@@ -1767,14 +2424,16 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
                                                     ): ?>
 
                                                         <a
-                                                            href="pagar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
+                                                            href="pagar_lancamento.php?id=<?= (int)$lancamento['id'] ?><?= !empty($lancamento['parcela_id']) ? '&amp;parcela_id=' . (int)$lancamento['parcela_id'] : '' ?>"
                                                             class="btn-acao"
-                                                            title="<?= $lancamento['tipo'] === 'despesa'
-                                                                        ? 'Pagar despesa'
-                                                                        : 'Receber receita' ?>">
-
+                                                            title="<?= !empty($lancamento['parcela_id'])
+                                                                        ? ($lancamento['tipo'] === 'despesa'
+                                                                            ? 'Pagar parcela'
+                                                                            : 'Receber parcela')
+                                                                        : ($lancamento['tipo'] === 'despesa'
+                                                                            ? 'Pagar despesa'
+                                                                            : 'Receber receita') ?>">
                                                             <i class="fa-solid fa-check"></i>
-
                                                         </a>
 
                                                     <?php endif; ?>
