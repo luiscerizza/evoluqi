@@ -426,11 +426,6 @@ $csrf_token = $_SESSION['csrf_token'] ?? '';
                             name="csrf_token"
                             value="<?= escapar($csrf_token) ?>">
 
-                        <button type="submit" class="btn btn-pagar">
-                            <i class="fa-solid fa-check"></i>
-                            Pagar
-                        </button>
-
                     </form>
 
                 <?php endif; ?>

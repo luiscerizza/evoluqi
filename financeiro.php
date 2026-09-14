@@ -249,14 +249,30 @@ if ($tipo_filtro !== 'todos') {
 |
 */
 
-if ($paciente_filtro > 0 || $status_filtro === 'atrasada') {
+if ($paciente_filtro > 0) {
 
     $where_manual[] = '1 = 0';
-} elseif ($status_filtro !== 'todos') {
+} elseif ($status_filtro === 'pago') {
 
-    $where_manual[] = 'status = :status_manual';
+    $where_manual[] = "LOWER(TRIM(COALESCE(status, ''))) = 'pago'";
+} elseif ($status_filtro === 'pendente') {
 
-    $params_manual[':status_manual'] = $status_filtro;
+    $where_manual[] = "
+        LOWER(TRIM(COALESCE(status, ''))) = 'pendente'
+        AND (data IS NULL OR data >= CURDATE())
+    ";
+} elseif ($status_filtro === 'atrasada') {
+
+    $where_manual[] = "
+        (
+            LOWER(TRIM(COALESCE(status, ''))) = 'atrasada'
+            OR (
+                LOWER(TRIM(COALESCE(status, ''))) = 'pendente'
+                AND data IS NOT NULL
+                AND data < CURDATE()
+            )
+        )
+    ";
 }
 
 
@@ -542,6 +558,38 @@ $lancamentos_manuais = [];
 */
 
 foreach ($lancamentos_manuais_avista as $lancamento) {
+
+    $status_lancamento = strtolower(
+        trim((string)($lancamento['status'] ?? ''))
+    );
+
+    /*
+    | Lançamentos à vista usam o campo `data` como vencimento.
+    | Portanto, um lançamento ainda não pago passa automaticamente
+    | para Vencido quando a data já passou.
+    */
+
+    if ($status_lancamento === 'pago') {
+
+        $lancamento['status'] = 'pago';
+
+        $lancamento['data'] =
+            $lancamento['data_pagamento']
+            ?? $lancamento['data'];
+    } elseif (
+        $status_lancamento === 'atrasada'
+        || (
+            $status_lancamento === 'pendente'
+            && !empty($lancamento['data'])
+            && $lancamento['data'] < date('Y-m-d')
+        )
+    ) {
+
+        $lancamento['status'] = 'atrasada';
+    } else {
+
+        $lancamento['status'] = 'pendente';
+    }
 
     $lancamentos_manuais[] = $lancamento;
 }
@@ -869,6 +917,13 @@ foreach ($parcelas_procedimentos as $parcela) {
     } elseif ($status_parcela === 'atrasada') {
         $data_movimentacao = $parcela['vencimento'];
         $status_financeiro = 'atrasada';
+    } elseif (
+        $status_parcela === 'pendente'
+        && !empty($parcela['vencimento'])
+        && strtotime($parcela['vencimento']) < strtotime(date('Y-m-d'))
+    ) {
+        $data_movimentacao = $parcela['vencimento'];
+        $status_financeiro = 'atrasada';
     } else {
         $data_movimentacao = $parcela['vencimento'];
         $status_financeiro = 'pendente';
@@ -922,37 +977,16 @@ foreach ($lancamentos_manuais as $lancamento) {
 
     $lancamento['origem'] = 'lancamento';
 
-    /*
-    |--------------------------------------------------------------------------
-    | PRESERVAR O ID DA PARCELA
-    |--------------------------------------------------------------------------
-    |
-    | Lançamentos à vista não possuem parcela_id.
-    | Lançamentos parcelados possuem o ID da parcela individual.
-    |
-    | Não devemos sobrescrever esse valor com NULL.
-    |
-    */
-
     $lancamento['parcela_id'] =
         $lancamento['parcela_id'] ?? null;
 
+    $lancamento['numero_orcamento'] = null;
 
-    $lancamento['numero_orcamento'] =
-        null;
+    $lancamento['paciente'] = null;
+    $lancamento['paciente_id'] = null;
+    $lancamento['procedimento_id'] = null;
 
-    $lancamento['paciente'] =
-        null;
-
-    $lancamento['paciente_id'] =
-        null;
-
-    $lancamento['procedimento_id'] =
-        null;
-
-
-    $lancamentos[] =
-        $lancamento;
+    $lancamentos[] = $lancamento;
 }
 
 /*
@@ -1067,6 +1101,53 @@ $lancamentos_recentes_total = count($lancamentos_realizados);
 
 /*
 |--------------------------------------------------------------------------
+| PARCELAMENTOS MANUAIS
+|--------------------------------------------------------------------------
+|
+| O card mostra somente lançamentos manuais parcelados.
+| Cobranças de procedimentos não entram nesta seção.
+|
+*/
+$parcelamentos_manuais = [];
+
+foreach ($lancamentos_manuais as $lancamento) {
+    if ((int)($lancamento['parcelas'] ?? 1) <= 1) {
+        continue;
+    }
+
+    $idLancamento = (int)($lancamento['id'] ?? 0);
+
+    if ($idLancamento <= 0) {
+        continue;
+    }
+
+    if (!isset($parcelamentos_manuais[$idLancamento])) {
+        $parcelamentos_manuais[$idLancamento] = [
+            'id' => $idLancamento,
+            'descricao' => $lancamento['descricao'] ?? '',
+            'tipo' => $lancamento['tipo'] ?? '',
+            'valor_total' => (float)($lancamento['valor_total'] ?? 0),
+            'total_parcelas' => (int)($lancamento['parcelas'] ?? 1),
+            'parcelas_pagas' => 0,
+            'valor_pago' => 0,
+        ];
+    }
+
+    $statusParcela = strtolower(
+        trim((string)($lancamento['status'] ?? ''))
+    );
+
+    if ($statusParcela === 'pago') {
+        $parcelamentos_manuais[$idLancamento]['parcelas_pagas']++;
+        $parcelamentos_manuais[$idLancamento]['valor_pago'] +=
+            (float)($lancamento['valor'] ?? 0);
+    }
+}
+
+$parcelamentos_manuais = array_values($parcelamentos_manuais);
+
+/*
+|--------------------------------------------------------------------------
 | RESUMO FINANCEIRO
 |--------------------------------------------------------------------------
 */
@@ -1130,92 +1211,6 @@ foreach ($lancamentos as $lancamento) {
 }
 
 $lucro = $receitas - $despesas;
-
-/*
-|--------------------------------------------------------------------------
-| RESUMO DOS LANÇAMENTOS PARCELADOS
-|--------------------------------------------------------------------------
-|
-| O lançamento-pai não entra como movimentação financeira.
-| Ele será exibido apenas como agrupador das parcelas.
-|
-*/
-
-$parcelamentos = [];
-
-$ids_lancamentos_parcelados = [];
-
-foreach ($lancamentos as $lancamento) {
-    if (
-        !empty($lancamento['parcela_id']) &&
-        !empty($lancamento['id'])
-    ) {
-        $ids_lancamentos_parcelados[] = (int)$lancamento['id'];
-    }
-}
-
-$ids_lancamentos_parcelados = array_values(
-    array_unique($ids_lancamentos_parcelados)
-);
-
-if (!empty($ids_lancamentos_parcelados)) {
-
-    $placeholders = implode(
-        ',',
-        array_fill(
-            0,
-            count($ids_lancamentos_parcelados),
-            '?'
-        )
-    );
-
-    $stmt_parcelamentos = $pdo->prepare("
-        SELECT
-            lf.id,
-            lf.tipo,
-            lf.descricao,
-            lf.valor,
-            lf.parcelas,
-            lf.forma_pagamento,
-
-            COUNT(lp.id) AS total_parcelas,
-
-            SUM(
-                CASE
-                    WHEN LOWER(TRIM(lp.status)) = 'paga'
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS parcelas_pagas,
-
-            COALESCE(SUM(lp.valor), 0) AS valor_parcelado
-
-        FROM lancamentos_financeiros lf
-
-        INNER JOIN lancamentos_parcelas lp
-            ON lp.lancamento_id = lf.id
-
-        WHERE lf.id IN ($placeholders)
-
-        GROUP BY
-            lf.id,
-            lf.tipo,
-            lf.descricao,
-            lf.valor,
-            lf.parcelas,
-            lf.forma_pagamento
-
-        ORDER BY lf.id DESC
-    ");
-
-    $stmt_parcelamentos->execute(
-        $ids_lancamentos_parcelados
-    );
-
-    $parcelamentos = $stmt_parcelamentos->fetchAll(
-        PDO::FETCH_ASSOC
-    );
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -1642,133 +1637,6 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
          CONTEÚDO
     ========================================================== -->
 
-            <?php if (!empty($parcelamentos)): ?>
-
-                <!-- =========================================================
-         PARCELAMENTOS
-    ========================================================== -->
-
-                <section class="card parcelamentos-card">
-
-                    <div class="card-header">
-
-                        <div>
-                            <h2>
-                                Parcelamentos
-                            </h2>
-
-                            <p>
-                                Lançamentos parcelados e andamento das parcelas.
-                            </p>
-                        </div>
-
-                        <span class="contador">
-                            <?= count($parcelamentos) ?>
-                            <?= count($parcelamentos) === 1
-                                ? 'parcelamento'
-                                : 'parcelamentos' ?>
-                        </span>
-
-                    </div>
-
-                    <div class="parcelamentos-lista">
-
-                        <?php foreach ($parcelamentos as $parcelamento): ?>
-
-                            <?php
-                            $totalParcelas = max(
-                                1,
-                                (int)$parcelamento['total_parcelas']
-                            );
-
-                            $parcelasPagas = (int)$parcelamento['parcelas_pagas'];
-
-                            $percentualPago = (
-                                $parcelasPagas / $totalParcelas
-                            ) * 100;
-                            ?>
-
-                            <article class="parcelamento-item">
-
-                                <div class="parcelamento-info">
-
-                                    <div class="parcelamento-titulo">
-
-                                        <strong>
-                                            <?= htmlspecialchars(
-                                                $parcelamento['descricao']
-                                            ) ?>
-                                        </strong>
-
-                                        <span>
-                                            Lançamento #<?= (int)$parcelamento['id'] ?>
-                                        </span>
-
-                                    </div>
-
-                                    <div class="parcelamento-detalhes">
-
-                                        <span>
-                                            Total:
-                                            <strong>
-                                                <?= moedaBR(
-                                                    $parcelamento['valor']
-                                                ) ?>
-                                            </strong>
-                                        </span>
-
-                                        <span>
-                                            <?= $parcelasPagas ?>
-                                            de
-                                            <?= $totalParcelas ?>
-                                            parcelas pagas
-                                        </span>
-
-                                    </div>
-
-                                    <div class="parcelamento-progresso">
-
-                                        <div
-                                            class="parcelamento-progresso-barra"
-                                            style="width: <?= $percentualPago ?>%;">
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                                <div class="parcelamento-acoes">
-
-                                    <a
-                                        href="visualizar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
-                                        class="btn-acao"
-                                        title="Visualizar lançamento">
-
-                                        <i class="fa-regular fa-eye"></i>
-
-                                    </a>
-
-                                    <a
-                                        href="editar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
-                                        class="btn-acao"
-                                        title="Editar lançamento">
-
-                                        <i class="fa-solid fa-pen"></i>
-
-                                    </a>
-
-                                </div>
-
-                            </article>
-
-                        <?php endforeach; ?>
-
-                    </div>
-
-                </section>
-
-            <?php endif; ?>
-
             <section class="conteudo-grid">
 
 
@@ -1913,6 +1781,137 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
                     </div>
 
                 </div>
+
+
+                <!-- =====================================================
+             PARCELAMENTOS
+        ====================================================== -->
+
+                <?php if (!empty($parcelamentos_manuais)): ?>
+
+                    <div class="card parcelamentos-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <h2>
+                                    Parcelamentos
+                                </h2>
+
+                                <p>
+                                    Acompanhe as parcelas dos lançamentos manuais.
+                                </p>
+                            </div>
+
+                            <span class="contador">
+                                <?= count($parcelamentos_manuais) ?>
+                                parcelamento<?= count($parcelamentos_manuais) === 1 ? '' : 's' ?>
+                            </span>
+
+                        </div>
+
+                        <div class="lista-parcelamentos">
+
+                            <?php foreach ($parcelamentos_manuais as $parcelamento): ?>
+
+                                <?php
+                                $totalParcelas =
+                                    max(1, (int)$parcelamento['total_parcelas']);
+
+                                $parcelasPagas =
+                                    min(
+                                        $totalParcelas,
+                                        (int)$parcelamento['parcelas_pagas']
+                                    );
+
+                                $percentual =
+                                    ($parcelasPagas / $totalParcelas) * 100;
+                                ?>
+
+                                <div class="parcelamento-item">
+
+                                    <div class="parcelamento-topo">
+
+                                        <div class="parcelamento-info">
+
+                                            <strong>
+                                                <?= htmlspecialchars(
+                                                    $parcelamento['descricao']
+                                                ) ?>
+                                            </strong>
+
+                                            <span>
+                                                Lançamento #<?= (int)$parcelamento['id'] ?>
+                                            </span>
+
+                                        </div>
+
+                                        <div class="parcelamento-total">
+
+                                            <strong>
+                                                <?= moedaBR(
+                                                    $parcelamento['valor_total']
+                                                ) ?>
+                                            </strong>
+
+                                            <span>
+                                                <?= $parcelasPagas ?>
+                                                de
+                                                <?= $totalParcelas ?>
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="parcelamento-progresso">
+
+                                        <div
+                                            class="parcelamento-progresso-barra"
+                                            style="width: <?= number_format($percentual, 2, '.', '') ?>%;">
+                                        </div>
+
+                                    </div>
+
+                                    <div class="parcelamento-rodape">
+
+                                        <span>
+                                            <?= $parcelasPagas ?>
+                                            de
+                                            <?= $totalParcelas ?>
+                                            parcela<?= $totalParcelas === 1 ? '' : 's' ?>
+                                            paga<?= $parcelasPagas === 1 ? '' : 's' ?>
+                                        </span>
+
+                                        <div class="parcelamento-acoes">
+
+                                            <a
+                                                href="visualizar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
+                                                class="btn-acao"
+                                                title="Visualizar lançamento">
+                                                <i class="fa-regular fa-eye"></i>
+                                            </a>
+
+                                            <a
+                                                href="editar_lancamento.php?id=<?= (int)$parcelamento['id'] ?>"
+                                                class="btn-acao"
+                                                title="Editar lançamento">
+                                                <i class="fa-solid fa-pen"></i>
+                                            </a>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    </div>
+
+                <?php endif; ?>
 
 
                 <!-- =====================================================
@@ -2404,16 +2403,14 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
 
                                                     </a>
 
-                                                    <?php if (empty($lancamento['parcela_id'])): ?>
+                                                    <a
+                                                        href="editar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
+                                                        class="btn-acao"
+                                                        title="Editar">
 
-                                                        <a
-                                                            href="editar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
-                                                            class="btn-acao"
-                                                            title="Editar">
-                                                            <i class="fa-solid fa-pen"></i>
-                                                        </a>
+                                                        <i class="fa-solid fa-pen"></i>
 
-                                                    <?php endif; ?>
+                                                    </a>
 
                                                     <?php if (
                                                         in_array(
@@ -2424,16 +2421,14 @@ $pacientes = $stmt_pacientes->fetchAll(PDO::FETCH_ASSOC);
                                                     ): ?>
 
                                                         <a
-                                                            href="pagar_lancamento.php?id=<?= (int)$lancamento['id'] ?><?= !empty($lancamento['parcela_id']) ? '&amp;parcela_id=' . (int)$lancamento['parcela_id'] : '' ?>"
+                                                            href="pagar_lancamento.php?id=<?= (int)$lancamento['id'] ?>"
                                                             class="btn-acao"
-                                                            title="<?= !empty($lancamento['parcela_id'])
-                                                                        ? ($lancamento['tipo'] === 'despesa'
-                                                                            ? 'Pagar parcela'
-                                                                            : 'Receber parcela')
-                                                                        : ($lancamento['tipo'] === 'despesa'
-                                                                            ? 'Pagar despesa'
-                                                                            : 'Receber receita') ?>">
+                                                            title="<?= $lancamento['tipo'] === 'despesa'
+                                                                        ? 'Pagar despesa'
+                                                                        : 'Receber receita' ?>">
+
                                                             <i class="fa-solid fa-check"></i>
+
                                                         </a>
 
                                                     <?php endif; ?>

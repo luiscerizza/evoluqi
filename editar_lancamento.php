@@ -114,6 +114,16 @@ try {
     ");
     $stmtParcelaPaga->execute([$id]);
     $temParcelaPaga = (bool) $stmtParcelaPaga->fetchColumn();
+
+    // Carrega as parcelas do lançamento manual, quando existirem.
+    $stmtParcelas = $pdo->prepare("
+        SELECT id, numero_parcela, valor, vencimento, status, data_pagamento
+        FROM lancamentos_parcelas
+        WHERE lancamento_id = ?
+        ORDER BY numero_parcela ASC
+    ");
+    $stmtParcelas->execute([$id]);
+    $parcelas = $stmtParcelas->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     error_log('editar_lancamento.php: ' . $e->getMessage());
     header('Location: financeiro.php?erro=erro_ao_carregar_lancamento');
@@ -231,6 +241,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException(
                     'O tipo não pode ser alterado porque este lançamento já possui uma parcela paga.'
                 );
+            }
+
+            // Se o lançamento possui parcelas e nenhuma foi paga,
+            // redistribui o novo valor entre elas.
+            if ($parcelas && !$temParcelaPagaLock) {
+                $stmtParcelasLock = $pdo->prepare("
+                    SELECT id, numero_parcela, valor, vencimento, status, data_pagamento
+                    FROM lancamentos_parcelas
+                    WHERE lancamento_id = ?
+                    ORDER BY numero_parcela ASC
+                    FOR UPDATE
+                ");
+                $stmtParcelasLock->execute([$id]);
+                $parcelasLock = $stmtParcelasLock->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!$parcelasLock) {
+                    throw new RuntimeException('As parcelas deste lançamento não foram encontradas.');
+                }
+
+                $valorCentavos = (int) round((float) $valor * 100);
+                $quantidadeParcelas = count($parcelasLock);
+                $valorBaseCentavos = intdiv($valorCentavos, $quantidadeParcelas);
+                $restoCentavos = $valorCentavos % $quantidadeParcelas;
+
+                $stmtAtualizaParcela = $pdo->prepare("
+                    UPDATE lancamentos_parcelas
+                    SET valor = :valor
+                    WHERE id = :id AND lancamento_id = :lancamento_id
+                ");
+
+                foreach ($parcelasLock as $indice => $parcela) {
+                    $valorParcelaCentavos = $valorBaseCentavos + ($indice < $restoCentavos ? 1 : 0);
+                    $valorParcela = number_format($valorParcelaCentavos / 100, 2, '.', '');
+
+                    $stmtAtualizaParcela->execute([
+                        ':valor' => $valorParcela,
+                        ':id' => $parcela['id'],
+                        ':lancamento_id' => $id,
+                    ]);
+                }
             }
 
             // O status é controlado pelo fluxo de pagamento.
