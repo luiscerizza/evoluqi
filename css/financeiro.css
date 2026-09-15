@@ -1084,3 +1084,371 @@ body {
     margin-bottom: 10px;
   }
 }
+
+/* =========================================================
+   REDESIGN VISUAL - FINANCEIRO
+   Limites de conteúdo, scroll interno e gráfico
+   ========================================================= */
+
+/* Estrutura principal dos blocos */
+.conteudo-grid {
+  align-items: stretch;
+  grid-auto-rows: auto;
+}
+
+.fluxo-card,
+.parcelamentos-card {
+  height: 470px;
+  min-height: 470px;
+}
+
+.fluxo-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.parcelamentos-card {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.recentes-card {
+  grid-column: 1 / -1;
+  height: 430px;
+  min-height: 430px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Cabeçalhos */
+.fluxo-card .card-header,
+.parcelamentos-card .card-header,
+.recentes-card .card-header,
+.tabela-card .card-header {
+  flex-shrink: 0;
+}
+
+.card-header h2 {
+  color: var(--texto);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.card-header p {
+  line-height: 1.45;
+}
+
+/* =========================================================
+   GRÁFICO DE FLUXO DE CAIXA
+   ========================================================= */
+
+.fluxo-card .legenda {
+  flex-shrink: 0;
+  padding-top: 8px;
+  padding-bottom: 2px;
+}
+
+.grafico-wrapper {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 18px 24px 22px;
+  overflow: hidden;
+}
+
+.grafico-barras {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 10px 4px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.grafico-barras::-webkit-scrollbar {
+  height: 7px;
+}
+
+.grafico-barras::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.grafico-barras::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.barra-coluna {
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.barras {
+  position: relative;
+  flex: 1;
+  min-height: 230px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  border-bottom: 1px solid #cbd5e1;
+  background-image: linear-gradient(
+    to bottom,
+    transparent 24.5%,
+    #eef2f7 25%,
+    transparent 25.5%,
+    transparent 49.5%,
+    #eef2f7 50%,
+    transparent 50.5%,
+    transparent 74.5%,
+    #eef2f7 75%,
+    transparent 75.5%
+  );
+}
+
+.barra {
+  position: relative;
+  z-index: 1;
+  width: 11px;
+  min-height: 3px;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.barra:hover {
+  opacity: 0.78;
+  transform: translateY(-1px);
+}
+
+.barra-label {
+  flex-shrink: 0;
+  min-height: 14px;
+  text-align: center;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   PARCELAMENTOS - SCROLL INTERNO
+   ========================================================= */
+
+.parcelamentos-card .card-header {
+  padding-bottom: 16px;
+}
+
+.lista-parcelamentos,
+.parcelamentos-lista {
+  flex: 1;
+  min-height: 0;
+  padding: 0 20px 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.lista-parcelamentos::-webkit-scrollbar,
+.parcelamentos-lista::-webkit-scrollbar {
+  width: 7px;
+}
+
+.lista-parcelamentos::-webkit-scrollbar-track,
+.parcelamentos-lista::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lista-parcelamentos::-webkit-scrollbar-thumb,
+.parcelamentos-lista::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.parcelamento-item {
+  flex-shrink: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: 10px;
+}
+
+.parcelamento-topo {
+  gap: 16px;
+}
+
+.parcelamento-info strong,
+.parcelamento-total strong {
+  font-size: 14px;
+}
+
+.parcelamento-progresso {
+  max-width: none;
+  height: 6px;
+}
+
+.parcelamento-rodape {
+  margin-top: 2px;
+}
+
+/* =========================================================
+   LANÇAMENTOS RECENTES - SCROLL INTERNO
+   ========================================================= */
+
+.recentes-card .lista-lancamentos {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 24px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.recentes-card .lista-lancamentos::-webkit-scrollbar {
+  width: 7px;
+}
+
+.recentes-card .lista-lancamentos::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recentes-card .lista-lancamentos::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.recentes-card .lancamento-item {
+  min-height: 64px;
+}
+
+.recentes-card .recentes-acoes {
+  flex-shrink: 0;
+  padding: 10px 24px 14px;
+  border-top: 1px solid #edf2f7;
+}
+
+/* =========================================================
+   TABELA DE MOVIMENTAÇÕES - LIMITE + SCROLL
+   ========================================================= */
+
+.tabela-card {
+  overflow: hidden;
+}
+
+.tabela-scroll {
+  max-height: 520px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.tabela-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tabela-scroll::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.tabela-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.tabela-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--borda);
+}
+
+/* =========================================================
+   RESPONSIVIDADE DO NOVO LAYOUT
+   ========================================================= */
+
+@media (max-width: 1200px) {
+  .conteudo-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  }
+
+  .fluxo-card,
+  .parcelamentos-card {
+    height: 450px;
+    min-height: 450px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .conteudo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fluxo-card,
+  .parcelamentos-card,
+  .recentes-card {
+    grid-column: 1;
+  }
+
+  .fluxo-card,
+  .parcelamentos-card {
+    height: 450px;
+    min-height: 450px;
+  }
+}
+
+@media (max-width: 700px) {
+  .fluxo-card,
+  .parcelamentos-card {
+    height: 420px;
+    min-height: 420px;
+  }
+
+  .recentes-card {
+    height: 400px;
+    min-height: 400px;
+  }
+
+  .grafico-wrapper {
+    padding: 14px 16px 18px;
+  }
+
+  .legenda {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .lista-parcelamentos,
+  .parcelamentos-lista {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .recentes-card .lista-lancamentos {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .tabela-scroll {
+    max-height: 460px;
+  }
+}
