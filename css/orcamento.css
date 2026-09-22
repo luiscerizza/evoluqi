@@ -1,27 +1,38 @@
 /* =========================================================
    ORCAMENTO.CSS - Tela de listagem de orçamentos
-   Dentech
+   Evoluqi
+   Revisado e consolidado
    ========================================================= */
 
 :root {
   --azul: #2563eb;
   --azul-hover: #1d4ed8;
   --azul-claro: #eff6ff;
+
   --verde: #16a34a;
   --verde-claro: #dcfce7;
+
   --vermelho: #dc2626;
   --vermelho-claro: #fee2e2;
+
   --amarelo: #d97706;
   --amarelo-claro: #fef3c7;
+
+  --roxo: #7c3aed;
+  --roxo-claro: #f5f3ff;
+
   --texto: #17233d;
   --texto-secundario: #64748b;
   --borda: #e2e8f0;
+  --borda-controle: #cbd5e1;
   --fundo: #f8fafc;
   --branco: #ffffff;
   --sombra: 0 2px 10px rgba(15, 23, 42, 0.06);
 }
 
-/* ---------- Base ---------- */
+/* =========================================================
+   BASE
+   ========================================================= */
 
 * {
   box-sizing: border-box;
@@ -42,7 +53,9 @@ body {
   position: relative;
 }
 
-/* ---------- Título ---------- */
+/* =========================================================
+   TÍTULO
+   ========================================================= */
 
 .container h1 {
   margin: 0 0 26px;
@@ -52,68 +65,111 @@ body {
   color: var(--texto);
 }
 
-/* ---------- Barra de filtros ---------- */
+/* =========================================================
+   FILTROS
+   ========================================================= */
 
 .filter-bar {
   width: 100%;
   margin-bottom: 20px;
-  padding: 18px;
+  padding: 20px;
   background: var(--branco);
   border: 1px solid var(--borda);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: var(--sombra);
 }
 
 .filter-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1.7fr) minmax(160px, 1fr) minmax(
-      160px,
-      1fr
-    ) auto auto;
-  gap: 12px;
-  align-items: center;
+  grid-template-columns:
+    minmax(220px, 1.7fr)
+    repeat(2, minmax(150px, 1fr))
+    repeat(4, minmax(145px, 1fr))
+    auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.filter-field {
+  min-width: 0;
+}
+
+.filter-field label {
+  display: block;
+  margin: 0 0 7px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .filter-form input,
-.filter-form select {
+.filter-form select,
+.filter-field input,
+.filter-field select {
   width: 100%;
   height: 44px;
+  min-width: 0;
   padding: 0 13px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--borda-controle);
+  border-radius: 9px;
   background: #fff;
   color: var(--texto);
+  font-family: inherit;
   font-size: 14px;
   outline: none;
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 }
 
-.filter-form input::placeholder {
+.filter-form input::placeholder,
+.filter-field input::placeholder {
   color: #94a3b8;
 }
 
 .filter-form input:focus,
-.filter-form select:focus {
+.filter-form select:focus,
+.filter-field input:focus,
+.filter-field select:focus {
   border-color: var(--azul);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-actions .btn-filter,
+.filter-actions .btn-reset {
+  margin: 0;
 }
 
 .btn-filter,
 .btn-reset {
   height: 44px;
+  min-width: 0;
   padding: 0 18px;
   border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .btn-filter {
@@ -125,10 +181,11 @@ body {
 .btn-filter:hover {
   background: var(--azul-hover);
   border-color: var(--azul-hover);
+  transform: translateY(-1px);
 }
 
 .btn-reset {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--borda-controle);
   background: #fff;
   color: #475569;
 }
@@ -136,9 +193,8 @@ body {
 .btn-reset:hover {
   background: #f8fafc;
   border-color: #94a3b8;
+  transform: translateY(-1px);
 }
-
-/* ---------- Informação dos filtros ---------- */
 
 .filter-info {
   margin-top: 12px;
@@ -150,28 +206,44 @@ body {
   font-size: 13px;
 }
 
-/* ---------- Botões superiores ---------- */
+/* =========================================================
+   AÇÕES SUPERIORES
+   ========================================================= */
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
 
 .btn-add,
 .btn-exportar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: 42px;
   padding: 0 18px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  text-decoration: none;
+  margin: 0;
+  border-radius: 9px;
+  font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  transition: 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .btn-add {
   background: var(--azul);
   color: #fff;
   border: 1px solid var(--azul);
-  margin-right: 8px;
 }
 
 .btn-add:hover {
@@ -183,15 +255,396 @@ body {
 .btn-exportar {
   background: #fff;
   color: #334155;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--borda-controle);
 }
 
 .btn-exportar:hover {
   background: #f8fafc;
   border-color: #94a3b8;
+  transform: translateY(-1px);
 }
 
-/* ---------- Tabela ---------- */
+/* =========================================================
+   TABELA
+   ========================================================= */
+
+.table-wrapper-lista {
+  width: 100%;
+  margin-top: 2px;
+  overflow-x: hidden;
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  background: var(--branco);
+  box-shadow: var(--sombra);
+}
+
+.table-wrapper-lista > table {
+  width: 100% !important;
+  min-width: 0;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 14px;
+  box-shadow: none !important;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: var(--branco);
+}
+
+/* Paciente | Data | Validade | Status | Ações */
+.table-wrapper-lista > table th:nth-child(1),
+.table-wrapper-lista > table td:nth-child(1) {
+  width: 30%;
+}
+
+.table-wrapper-lista > table th:nth-child(2),
+.table-wrapper-lista > table td:nth-child(2) {
+  width: 14%;
+}
+
+.table-wrapper-lista > table th:nth-child(3),
+.table-wrapper-lista > table td:nth-child(3) {
+  width: 14%;
+}
+
+.table-wrapper-lista > table th:nth-child(4),
+.table-wrapper-lista > table td:nth-child(4) {
+  width: 14%;
+}
+
+.table-wrapper-lista > table th:nth-child(5),
+.table-wrapper-lista > table td:nth-child(5) {
+  width: 28%;
+}
+
+.table-wrapper-lista > table thead th {
+  height: 52px;
+  padding: 0 18px;
+  background: #f1f5f9;
+  color: #334155;
+  border-bottom: 1px solid var(--borda);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table-wrapper-lista > table thead th:first-child {
+  border-top-left-radius: 13px;
+}
+
+.table-wrapper-lista > table thead th:last-child {
+  border-top-right-radius: 13px;
+}
+
+.table-wrapper-lista > table tbody td {
+  height: 62px;
+  padding: 12px 18px;
+  background: var(--branco);
+  color: var(--texto);
+  border-bottom: 1px solid #edf2f7;
+  font-size: 14px;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+
+.table-wrapper-lista > table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrapper-lista > table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.table-wrapper-lista > table tbody td:nth-child(2),
+.table-wrapper-lista > table tbody td:nth-child(3) {
+  color: #475569;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+/* Base do status usado no <span class="status ..."> */
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 118px;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  text-transform: none;
+  box-sizing: border-box;
+}
+
+.status-pendente {
+  color: #92400e;
+  background: var(--amarelo-claro);
+}
+
+.status-aceito {
+  color: #166534;
+  background: var(--verde-claro);
+}
+
+/* Status intermediário */
+
+.status-recusado {
+  color: #991b1b;
+  background: var(--vermelho-claro);
+}
+
+/* Status intermediário */
+
+/* Compatibilidade caso algum trecho antigo ainda use hífen */
+
+/* =========================================================
+   AÇÕES DA TABELA — SOMENTE ÍCONES
+   =========================================================
+
+   A coluna de ações possui 28% da tabela, suficiente para cinco
+   botões de 38px sem criar rolagem horizontal em resoluções desktop.
+   Cada <form> e cada <a> ocupa exatamente o mesmo espaço.
+   ========================================================= */
+
+.table-wrapper-lista > table th:last-child,
+.table-wrapper-lista > table td:last-child {
+  width: 28%;
+  min-width: 250px;
+}
+
+.table-wrapper-lista > table tbody td.acoes {
+  display: table-cell !important;
+  height: 62px;
+  min-width: 0;
+  padding: 10px 14px;
+  vertical-align: middle;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+/*
+   IMPORTANTE:
+   Em algumas versões do HTML, .acoes é a própria <td>.
+   Nesse caso, display:flex não pode ser aplicado à célula da tabela,
+   então os links e forms diretos são alinhados horizontalmente aqui.
+*/
+.table-wrapper-lista > table tbody td.acoes > a.acao-icone,
+.table-wrapper-lista > table tbody td.acoes > form {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  margin: 0 5px 0 0 !important;
+  padding: 0 !important;
+}
+
+.table-wrapper-lista > table tbody td.acoes > a.acao-icone:last-child,
+.table-wrapper-lista > table tbody td.acoes > form:last-child {
+  margin-right: 0 !important;
+}
+
+.table-wrapper-lista > table tbody td.acoes > form {
+  border: 0;
+  background: transparent;
+}
+
+.table-wrapper-lista .acoes {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* A e FORM são apenas contêineres dos botões. */
+.table-wrapper-lista .acoes > a.acao-icone,
+.table-wrapper-lista .acoes > form {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.table-wrapper-lista .acoes > form {
+  border: 0;
+  background: transparent;
+}
+
+/* Botão/link visual dos ícones. */
+.table-wrapper-lista .acoes .acao-icone {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 38px;
+
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  box-sizing: border-box;
+  border: 1px solid #d8e2f0 !important;
+  border-radius: 9px;
+  background: #fff !important;
+
+  color: var(--azul);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.table-wrapper-lista .acoes .acao-icone i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Remove qualquer pseudo-elemento antigo. */
+.table-wrapper-lista .acoes .acao-icone::before,
+.table-wrapper-lista .acoes .acao-icone::after,
+.table-wrapper-lista .acoes .acao-visualizar::before,
+.table-wrapper-lista .acoes .acao-visualizar::after {
+  content: none !important;
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Visualizar */
+.table-wrapper-lista .acoes .acao-visualizar {
+  color: var(--azul) !important;
+  border-color: #cbdcf8 !important;
+}
+
+.table-wrapper-lista .acoes .acao-visualizar:hover {
+  color: #1d4ed8 !important;
+  background: var(--azul-claro) !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+/* Editar */
+.table-wrapper-lista .acoes .acao-editar {
+  color: var(--roxo) !important;
+  border-color: #ddd6fe !important;
+}
+
+.table-wrapper-lista .acoes .acao-editar:hover {
+  color: #6d28d9 !important;
+  background: var(--roxo-claro) !important;
+  border-color: #c4b5fd !important;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Aceitar */
+.table-wrapper-lista .acoes .acao-aceitar {
+  color: var(--verde) !important;
+  border-color: #bbf7d0 !important;
+}
+
+.table-wrapper-lista .acoes .acao-aceitar:hover {
+  background: var(--verde-claro) !important;
+  border-color: #86efac !important;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Recusar */
+.table-wrapper-lista .acoes .acao-recusar {
+  color: var(--vermelho) !important;
+  border-color: #fecaca !important;
+}
+
+.table-wrapper-lista .acoes .acao-recusar:hover {
+  background: var(--vermelho-claro) !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Arquivar */
+.table-wrapper-lista .acoes .acao-arquivar {
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+.table-wrapper-lista .acoes .acao-arquivar:hover {
+  color: #334155 !important;
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 6px rgba(71, 85, 105, 0.1);
+  transform: translateY(-1px);
+}
+
+.table-wrapper-lista .acoes .acao-icone:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   ESTADO VAZIO
+   ========================================================= */
+
+.estado-vazio,
+.container > p.estado-vazio {
+  margin: 0;
+  padding: 40px;
+  background: #fff;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  box-shadow: var(--sombra);
+  color: #64748b;
+  text-align: center;
+}
+
+/* =========================================================
+   COMPATIBILIDADE COM TABELAS ANTIGAS
+   ========================================================= */
 
 .container > table {
   width: 100%;
@@ -216,22 +669,6 @@ body {
   text-align: left;
 }
 
-.container > table thead th:nth-child(1) {
-  width: 35%;
-}
-
-.container > table thead th:nth-child(2) {
-  width: 18%;
-}
-
-.container > table thead th:nth-child(3) {
-  width: 17%;
-}
-
-.container > table thead th:nth-child(4) {
-  width: 30%;
-}
-
 .container > table tbody td {
   min-height: 60px;
   padding: 16px 18px;
@@ -248,132 +685,160 @@ body {
   background: #f8fafc;
 }
 
-.container > table tbody td:nth-child(2),
-.container > table tbody td:nth-child(3) {
-  color: #475569;
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
+@media (max-width: 1400px) {
+  .filter-form {
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+  }
+
+  .filter-field-paciente {
+    grid-column: span 2;
+  }
+
+  .filter-actions {
+    grid-column: span 2;
+  }
 }
 
-/* ---------- Status ---------- */
+@media (max-width: 1200px) {
+  .table-wrapper-lista > table th:nth-child(1),
+  .table-wrapper-lista > table td:nth-child(1) {
+    width: 27%;
+  }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 82px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: capitalize;
+  .table-wrapper-lista > table th:nth-child(2),
+  .table-wrapper-lista > table td:nth-child(2),
+  .table-wrapper-lista > table th:nth-child(3),
+  .table-wrapper-lista > table td:nth-child(3),
+  .table-wrapper-lista > table th:nth-child(4),
+  .table-wrapper-lista > table td:nth-child(4) {
+    width: 14%;
+  }
+
+  .table-wrapper-lista > table th:last-child,
+  .table-wrapper-lista > table td:last-child {
+    width: 31%;
+  }
+
+  .table-wrapper-lista > table tbody td.acoes {
+    min-width: 250px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .table-wrapper-lista .acoes {
+    gap: 5px;
+  }
+
+  .table-wrapper-lista > table tbody td.acoes > a.acao-icone,
+  .table-wrapper-lista > table tbody td.acoes > form {
+    margin-right: 4px !important;
+  }
+
+  .table-wrapper-lista .acoes > a.acao-icone,
+  .table-wrapper-lista .acoes > form,
+  .table-wrapper-lista .acoes .acao-icone {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .table-wrapper-lista .acoes .acao-icone i {
+    font-size: 13px;
+  }
 }
-
-.status-pendente {
-  color: #92400e;
-  background: var(--amarelo-claro);
-}
-
-.status-aceito {
-  color: #166534;
-  background: var(--verde-claro);
-}
-
-.status-recusado {
-  color: #991b1b;
-  background: var(--vermelho-claro);
-}
-
-/* ---------- Ações ---------- */
-
-.acoes {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.acoes a,
-.acoes button {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.acoes a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  padding: 0 11px;
-  border-radius: 7px;
-  background: #f8fafc;
-  color: var(--azul);
-  border: 1px solid #dbe3ee;
-  text-decoration: none;
-}
-
-.acoes a:hover {
-  background: var(--azul-claro);
-  border-color: #bfdbfe;
-}
-
-/*
- * Os formulários de Aceitar/Recusar possuem style inline
- * no PHP. Aqui apenas organizamos os botões dentro da célula.
- */
-.acoes form {
-  display: inline-flex !important;
-  margin: 0;
-}
-
-.acoes form button {
-  min-height: 34px;
-  padding: 0 11px !important;
-  border-radius: 7px !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-}
-
-.acoes form button:hover {
-  background: #f8fafc !important;
-}
-
-/* ---------- Estado vazio ---------- */
-
-.container > p {
-  background: #fff;
-  border: 1px solid var(--borda);
-  border-radius: 12px;
-  box-shadow: var(--sombra);
-  margin: 0;
-}
-
-/* ---------- Responsividade ---------- */
 
 @media (max-width: 1100px) {
   .filter-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .btn-filter,
-  .btn-reset {
-    width: 100%;
+  .filter-actions .btn-filter,
+  .filter-actions .btn-reset {
+    flex: 1 1 0;
   }
 
-  .container > table {
-    table-layout: auto;
+  .table-wrapper-lista > table {
+    table-layout: fixed;
+  }
+
+  .table-wrapper-lista > table tbody td {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .table-wrapper-lista > table tbody td.acoes {
+    display: table-cell !important;
+    white-space: normal;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 1000px) {
+  .table-wrapper-lista > table th:nth-child(1),
+  .table-wrapper-lista > table td:nth-child(1) {
+    width: 25%;
+  }
+
+  .table-wrapper-lista > table th:nth-child(2),
+  .table-wrapper-lista > table td:nth-child(2),
+  .table-wrapper-lista > table th:nth-child(3),
+  .table-wrapper-lista > table td:nth-child(3),
+  .table-wrapper-lista > table th:nth-child(4),
+  .table-wrapper-lista > table td:nth-child(4) {
+    width: 14%;
+  }
+
+  .table-wrapper-lista > table th:last-child,
+  .table-wrapper-lista > table td:last-child {
+    width: 33%;
+  }
+
+  .table-wrapper-lista .acoes {
+    gap: 4px;
+  }
+
+  .table-wrapper-lista > table tbody td.acoes > a.acao-icone,
+  .table-wrapper-lista > table tbody td.acoes > form {
+    margin-right: 3px !important;
+  }
+
+  .table-wrapper-lista .acoes > a.acao-icone,
+  .table-wrapper-lista .acoes > form,
+  .table-wrapper-lista .acoes .acao-icone {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .table-wrapper-lista .acoes .acao-icone i {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-field-paciente,
+  .filter-actions {
+    grid-column: span 2;
+  }
+
+  .table-wrapper-lista {
     overflow-x: auto;
-    display: block;
   }
 
-  .container > table thead,
-  .container > table tbody,
-  .container > table tr {
-    width: 100%;
-  }
-
-  .container > table th,
-  .container > table td {
-    white-space: nowrap;
+  .table-wrapper-lista > table {
+    min-width: 760px;
   }
 }
 
@@ -384,42 +849,163 @@ body {
   }
 
   .container h1 {
-    font-size: 26px;
     margin-bottom: 20px;
-  }
-
-  .filter-form {
-    grid-template-columns: 1fr;
-  }
-
-  .btn-add,
-  .btn-exportar {
-    width: 100%;
-    margin-right: 0;
+    font-size: 26px;
   }
 
   .filter-bar {
     padding: 14px;
   }
 
-  .container > table {
-    font-size: 13px;
+  .filter-form {
+    grid-template-columns: 1fr;
   }
 
-  .container > table thead th,
-  .container > table tbody td {
-    padding-left: 12px;
-    padding-right: 12px;
+  .filter-field-paciente,
+  .filter-actions {
+    grid-column: auto;
   }
 
-  .acoes {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .acoes a,
-  .acoes form,
-  .acoes form button {
+  .filter-actions {
     width: 100%;
   }
+
+  .filter-actions .btn-filter,
+  .filter-actions .btn-reset {
+    flex: 1 1 0;
+    width: auto;
+  }
+
+  .top-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-add,
+  .btn-exportar {
+    width: 100%;
+  }
+
+  .table-wrapper-lista {
+    border-radius: 12px;
+  }
+
+  .table-wrapper-lista > table {
+    min-width: 760px;
+  }
+
+  .table-wrapper-lista > table thead th,
+  .table-wrapper-lista > table tbody td {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+
+  .table-wrapper-lista .status {
+    min-width: 110px;
+  }
+}
+
+/* =========================================================
+   ACESSIBILIDADE / INTERAÇÃO
+   ========================================================= */
+
+.btn-filter:focus-visible,
+.btn-reset:focus-visible,
+.btn-add:focus-visible,
+.btn-exportar:focus-visible,
+.table-wrapper-lista .acoes .acao-icone:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-filter,
+  .btn-reset,
+  .btn-add,
+  .btn-exportar,
+  .table-wrapper-lista .acoes .acao-icone {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   STATUS — BADGES DOS ORÇAMENTOS
+   ========================================================= */
+
+/* Mantém todos os status com a mesma estrutura visual. */
+.status-pendente,
+.status-aceito,
+.status-recusado,
+.status-parcialmente_aceito,
+.status-parcialmente_recusado,
+.status-parcialmente-aceito,
+.status-parcialmente-recusado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  min-height: 28px;
+  padding: 5px 14px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Pendente */
+.status-pendente {
+  color: #a16207;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+/* Aceito */
+.status-aceito {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+/* Recusado */
+.status-recusado {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+/* Parcialmente aceito */
+.status-parcialmente_aceito,
+.status-parcialmente-aceito {
+  color: #6d28d9;
+  background: #f3e8ff;
+  border-color: #ddd6fe;
+}
+
+/* Parcialmente recusado */
+.status-parcialmente_recusado,
+.status-parcialmente-recusado {
+  color: #c2410c;
+  background: #ffedd5;
+  border-color: #fed7aa;
+}
+
+/* Garante que o badge fique centralizado dentro da célula da tabela. */
+td.status,
+.status-cell {
+  vertical-align: middle;
+}
+
+td .status-pendente,
+td .status-aceito,
+td .status-recusado,
+td .status-parcialmente_aceito,
+td .status-parcialmente_recusado,
+td .status-parcialmente-aceito,
+td .status-parcialmente-recusado {
+  margin: 0 auto;
 }

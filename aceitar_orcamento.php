@@ -3,6 +3,7 @@
 require_once 'config/auth.php';
 require_once 'config/csrf.php';
 require_once 'conexao/conexao.php';
+require_once 'config/orcamento.php';
 
 exigirLogin();
 
@@ -53,54 +54,86 @@ try {
     |--------------------------------------------------------------------------
     */
 
-    if ($orcamento['status'] === 'recusado') {
+    if ($orcamento['status'] !== 'pendente') {
         throw new Exception(
-            'Um orçamento recusado não pode ser aceito.'
-        );
-    }
-
-    if (!in_array(
-        $orcamento['status'],
-        ['pendente', 'aceito'],
-        true
-    )) {
-        throw new Exception(
-            'Status do orçamento inválido.'
+            'Este orçamento já possui uma decisão registrada e não pode ser confirmado novamente.'
         );
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | 3. Confirmar orçamento
-    |--------------------------------------------------------------------------
-    |
-    | IMPORTANTE:
-    |
-    | Confirmar um orçamento NÃO cria receita.
-    |
-    | O orçamento continua sendo uma proposta comercial.
-    |
-    | A geração de cobrança financeira acontecerá separadamente,
-    | quando realmente houver uma cobrança.
-    |
-    */
+|--------------------------------------------------------------------------
+| 3. Aceitar itens do orçamento
+|--------------------------------------------------------------------------
+|
+| O botão "Confirmar" aceita todos os itens que ainda
+| estão pendentes.
+|
+| Isso não cria procedimento, cobrança, parcela
+| ou lançamento financeiro.
+|
+*/
 
-    if ($orcamento['status'] === 'pendente') {
+    $stmt_itens = $pdo->prepare("
+    SELECT
+        id,
+        status
+    FROM orcamentos_itens
+    WHERE orcamento_id = ?
+    ORDER BY id ASC
+    FOR UPDATE
+");
 
-        $stmt = $pdo->prepare("
-            UPDATE orcamentos
-            SET status = 'aceito'
-            WHERE id = ?
-              AND status = 'pendente'
-        ");
+    $stmt_itens->execute([$orcamento_id]);
 
-        $stmt->execute([$orcamento_id]);
+    $itens = $stmt_itens->fetchAll(PDO::FETCH_ASSOC);
 
-        if ($stmt->rowCount() !== 1) {
-            throw new Exception(
-                'Não foi possível confirmar o orçamento.'
-            );
-        }
+    if (count($itens) === 0) {
+        throw new Exception(
+            'Este orçamento não possui itens para confirmar.'
+        );
+    }
+
+    /*
+ * Aceita todos os itens que ainda estão pendentes.
+ */
+    $stmt_aceitar_itens = $pdo->prepare("
+    UPDATE orcamentos_itens
+    SET status = 'aceito'
+    WHERE orcamento_id = ?
+      AND status = 'pendente'
+");
+
+    $stmt_aceitar_itens->execute([$orcamento_id]);
+
+    /*
+ * Reconsulta os itens depois da decisão.
+ */
+    $stmt_itens->execute([$orcamento_id]);
+
+    $itens_atualizados = $stmt_itens->fetchAll(PDO::FETCH_ASSOC);
+
+    /*
+ * Calcula o status geral do orçamento
+ * com base nos itens.
+ */
+    $novo_status = calcularStatusOrcamento($itens_atualizados);
+
+    $stmt_status = $pdo->prepare("
+    UPDATE orcamentos
+    SET status = ?
+    WHERE id = ?
+      AND status = 'pendente'
+");
+
+    $stmt_status->execute([
+        $novo_status,
+        $orcamento_id
+    ]);
+
+    if ($stmt_status->rowCount() !== 1) {
+        throw new Exception(
+            'Não foi possível atualizar o status do orçamento.'
+        );
     }
 
     /*

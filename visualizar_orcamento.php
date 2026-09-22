@@ -49,23 +49,6 @@ if (!$orc) {
     die('Orçamento não encontrado.');
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| ATUALIZAR PARCELAS ATRASADAS
-|--------------------------------------------------------------------------
-*/
-
-$pdo->prepare("
-    UPDATE parcelas
-    SET status = 'atrasada'
-    WHERE orcamento_id = ?
-      AND status = 'pendente'
-      AND vencimento < CURDATE()
-")
-    ->execute([$id]);
-
-
 /*
 |--------------------------------------------------------------------------
 | BUSCAR ITENS
@@ -78,7 +61,8 @@ $stmt_itens = $pdo->prepare("
         orcamento_id,
         descricao,
         quantidade,
-        valor_unitario
+        valor_unitario,
+        status
     FROM orcamentos_itens
     WHERE orcamento_id = ?
     ORDER BY id ASC
@@ -91,26 +75,25 @@ $itens = $stmt_itens->fetchAll(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
-| BUSCAR PARCELAS
+| BUSCAR CONDIÇÕES COMERCIAIS
 |--------------------------------------------------------------------------
 */
 
-$stmt_par = $pdo->prepare("
+$stmt_condicoes = $pdo->prepare("
     SELECT
         id,
-        numero_parcela,
+        orcamento_id,
+        numero,
         valor,
-        vencimento,
-        status,
-        data_pagamento
-    FROM parcelas
+        vencimento_previsto
+    FROM orcamentos_condicoes
     WHERE orcamento_id = ?
-    ORDER BY numero_parcela ASC
+    ORDER BY numero ASC
 ");
 
-$stmt_par->execute([$id]);
+$stmt_condicoes->execute([$id]);
 
-$parcelas = $stmt_par->fetchAll(PDO::FETCH_ASSOC);
+$condicoes = $stmt_condicoes->fetchAll(PDO::FETCH_ASSOC);
 
 
 /*
@@ -132,45 +115,46 @@ foreach ($itens as $item) {
 
 /*
 |--------------------------------------------------------------------------
-| CONTROLE DAS PARCELAS
-|--------------------------------------------------------------------------
-*/
-
-$qtd_total = count($parcelas);
-
-$qtd_pagas = 0;
-
-foreach ($parcelas as $parcela) {
-
-    if ($parcela['status'] === 'paga') {
-        $qtd_pagas++;
-    }
-}
-
-$progresso = $qtd_total > 0
-    ? round(($qtd_pagas / $qtd_total) * 100)
-    : 0;
-
-
-/*
-|--------------------------------------------------------------------------
 | STATUS DO ORÇAMENTO
 |--------------------------------------------------------------------------
 */
 
 $status_orcamento = $orc['status'] ?? 'pendente';
 
-$orcamento_confirmado = in_array(
-    $status_orcamento,
-    ['aceito', 'confirmado'],
-    true
-);
-
-$orcamento_recusado =
-    $status_orcamento === 'recusado';
-
 $orcamento_pendente =
     $status_orcamento === 'pendente';
+
+$orcamento_bloqueado =
+    in_array(
+        $status_orcamento,
+        [
+            'parcialmente_aceito',
+            'aceito',
+            'parcialmente_recusado',
+            'recusado'
+        ],
+        true
+    );
+
+$orcamento_confirmado =
+    in_array(
+        $status_orcamento,
+        [
+            'parcialmente_aceito',
+            'aceito'
+        ],
+        true
+    );
+
+$orcamento_recusado =
+    in_array(
+        $status_orcamento,
+        [
+            'parcialmente_recusado',
+            'recusado'
+        ],
+        true
+    );
 
 
 /*
@@ -181,9 +165,14 @@ $orcamento_pendente =
 
 $status_texto = match ($status_orcamento) {
 
-    'aceito',
-    'confirmado'
-    => 'Confirmado',
+    'parcialmente_aceito'
+    => 'Parcialmente aceito',
+
+    'aceito'
+    => 'Aceito',
+
+    'parcialmente_recusado'
+    => 'Parcialmente recusado',
 
     'recusado'
     => 'Recusado',
@@ -201,9 +190,14 @@ $status_texto = match ($status_orcamento) {
 
 $status_classe = match ($status_orcamento) {
 
-    'aceito',
-    'confirmado'
-    => 'status-confirmado',
+    'parcialmente_aceito'
+    => 'status-parcialmente-aceito',
+
+    'aceito'
+    => 'status-aceito',
+
+    'parcialmente_recusado'
+    => 'status-parcialmente-recusado',
 
     'recusado'
     => 'status-recusado',
@@ -242,36 +236,6 @@ function dataBR($data): string
         : '—';
 }
 
-function statusParcelaTexto($status): string
-{
-    return match ($status) {
-
-        'paga'
-        => 'Paga',
-
-        'atrasada'
-        => 'Atrasada',
-
-        default
-        => 'Pendente'
-    };
-}
-
-function statusParcelaClasse($status): string
-{
-    return match ($status) {
-
-        'paga'
-        => 'parcela-paga',
-
-        'atrasada'
-        => 'parcela-atrasada',
-
-        default
-        => 'parcela-pendente'
-    };
-}
-
 ?>
 <!DOCTYPE html>
 
@@ -286,7 +250,7 @@ function statusParcelaClasse($status): string
         content="width=device-width, initial-scale=1.0">
 
     <title>
-        Orçamento #<?= $id ?> - Dentech
+        Orçamento #<?= $id ?> - Evoluqi
     </title>
 
     <link
@@ -558,6 +522,10 @@ function statusParcelaClasse($status): string
                                     Subtotal
                                 </th>
 
+                                <th>
+                                    Decisão
+                                </th>
+
                             </tr>
 
                         </thead>
@@ -599,6 +567,79 @@ function statusParcelaClasse($status): string
                                         <strong>
                                             <?= moedaBR($subtotal) ?>
                                         </strong>
+
+                                    </td>
+
+                                    <td>
+
+                                        <?php if (($item['status'] ?? 'pendente') === 'pendente'): ?>
+
+                                            <div class="acoes-item">
+
+                                                <form
+                                                    method="POST"
+                                                    action="decidir_item_orcamento.php"
+                                                    onsubmit="return confirm('Aceitar este item do orçamento?');">
+                                                    <?= csrf_field() ?>
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="item_id"
+                                                        value="<?= (int)$item['id'] ?>">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="decisao"
+                                                        value="aceito">
+
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-confirmar">
+                                                        ✓ Aceitar
+                                                    </button>
+
+                                                </form>
+
+
+                                                <form
+                                                    method="POST"
+                                                    action="decidir_item_orcamento.php"
+                                                    onsubmit="return confirm('Recusar este item do orçamento?');">
+                                                    <?= csrf_field() ?>
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="item_id"
+                                                        value="<?= (int)$item['id'] ?>">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="decisao"
+                                                        value="recusado">
+
+                                                    <button
+                                                        type="submit"
+                                                        class="btn btn-recusar">
+                                                        ✕ Recusar
+                                                    </button>
+
+                                                </form>
+
+                                            </div>
+
+                                        <?php elseif (($item['status'] ?? '') === 'aceito'): ?>
+
+                                            <span class="status-item status-aceito">
+                                                ✓ Aceito
+                                            </span>
+
+                                        <?php elseif (($item['status'] ?? '') === 'recusado'): ?>
+
+                                            <span class="status-item status-recusado">
+                                                ✕ Recusado
+                                            </span>
+
+                                        <?php endif; ?>
 
                                     </td>
 
@@ -659,6 +700,10 @@ function statusParcelaClasse($status): string
              CONDIÇÕES DE PAGAMENTO
         ====================================================== -->
 
+            <!-- =====================================================
+     CONDIÇÕES COMERCIAIS
+====================================================== -->
+
             <section class="parcelas-section">
 
                 <div class="parcelas-header">
@@ -668,22 +713,24 @@ function statusParcelaClasse($status): string
                         <div>
 
                             <h3>
-                                💳 Condições de Pagamento
+                                💳 Condições Comerciais
                             </h3>
 
                             <span class="parcelas-resumo">
 
-                                <?php if ($qtd_total > 0): ?>
+                                <?php if (!empty($condicoes)): ?>
 
-                                    <?= $qtd_total ?>
-                                    <?= $qtd_total === 1 ? 'parcela' : 'parcelas' ?>
+                                    <?= count($condicoes) ?>
+                                    <?= count($condicoes) === 1
+                                        ? 'condição'
+                                        : 'condições' ?>
 
                                     ·
 
                                     <?= moedaBR(
                                         array_sum(
                                             array_column(
-                                                $parcelas,
+                                                $condicoes,
                                                 'valor'
                                             )
                                         )
@@ -731,7 +778,7 @@ function statusParcelaClasse($status): string
                 </div>
 
 
-                <?php if (!empty($parcelas)): ?>
+                <?php if (!empty($condicoes)): ?>
 
                     <div class="table-wrapper">
 
@@ -742,19 +789,15 @@ function statusParcelaClasse($status): string
                                 <tr>
 
                                     <th>
-                                        Parcela
+                                        Condição
                                     </th>
 
                                     <th>
-                                        Vencimento
+                                        Vencimento previsto
                                     </th>
 
                                     <th class="text-right">
                                         Valor
-                                    </th>
-
-                                    <th class="text-center">
-                                        Status
                                     </th>
 
                                 </tr>
@@ -764,49 +807,33 @@ function statusParcelaClasse($status): string
 
                             <tbody>
 
-                                <?php foreach ($parcelas as $parcela): ?>
+                                <?php foreach ($condicoes as $condicao): ?>
 
                                     <tr>
 
                                         <td>
 
                                             <strong>
-                                                <?= (int)$parcela['numero_parcela'] ?>ª
+                                                <?= (int)$condicao['numero'] ?>ª
                                             </strong>
 
                                         </td>
 
 
                                         <td>
+
                                             <?= dataBR(
-                                                $parcela['vencimento']
+                                                $condicao['vencimento_previsto']
                                             ) ?>
+
                                         </td>
 
 
                                         <td class="text-right">
 
                                             <?= moedaBR(
-                                                $parcela['valor']
+                                                $condicao['valor']
                                             ) ?>
-
-                                        </td>
-
-
-                                        <td class="text-center">
-
-                                            <span
-                                                class="parcela-status <?= htmlspecialchars(
-                                                                            statusParcelaClasse(
-                                                                                $parcela['status']
-                                                                            )
-                                                                        ) ?>">
-                                                <?= htmlspecialchars(
-                                                    statusParcelaTexto(
-                                                        $parcela['status']
-                                                    )
-                                                ) ?>
-                                            </span>
 
                                         </td>
 
@@ -824,7 +851,7 @@ function statusParcelaClasse($status): string
 
                     <div class="sem-itens">
 
-                        Nenhuma condição de pagamento foi cadastrada
+                        Nenhuma condição comercial foi cadastrada
                         para este orçamento.
 
                     </div>

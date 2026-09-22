@@ -1,0 +1,747 @@
+/* =========================================================
+   EDITAR ORÇAMENTO
+   ========================================================= */
+
+#formEditarOrcamento {
+    width: 100%;
+    max-width: 1100px;
+}
+
+.container {
+    width: calc(100% - 220px);
+    margin-left: 220px;
+    padding: 35px 50px;
+    box-sizing: border-box;
+}
+/* =========================================================
+   TÍTULO
+   ========================================================= */
+
+.container > h1 {
+  margin-top: 0;
+  margin-bottom: 30px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--texto-principal, #172033);
+}
+
+/* =========================================================
+   MENSAGENS
+   ========================================================= */
+
+#formEditarOrcamento + .erro,
+.erro {
+  background: #fff1f2 !important;
+  color: #b42318 !important;
+  border: 1px solid #fecdd3;
+  padding: 14px 16px !important;
+  border-radius: 10px !important;
+  margin-bottom: 20px !important;
+}
+
+.sucesso {
+  background: #ecfdf3 !important;
+  color: #027a48 !important;
+  border: 1px solid #abefc6;
+  padding: 14px 16px !important;
+  border-radius: 10px !important;
+  margin-bottom: 20px !important;
+}
+
+/* =========================================================
+   GRUPOS DO FORMULÁRIO
+   ========================================================= */
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #344054;
+}
+
+/* =========================================================
+   CAMPOS
+   ========================================================= */
+
+#formEditarOrcamento input[type="text"],
+#formEditarOrcamento input[type="number"],
+#formEditarOrcamento input[type="date"],
+#formEditarOrcamento select,
+#formEditarOrcamento textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #101828;
+
+  font-family: inherit;
+  font-size: 14px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+#formEditarOrcamento input:focus,
+#formEditarOrcamento select:focus,
+#formEditarOrcamento textarea:focus {
+  border-color: #7f56d9;
+  box-shadow: 0 0 0 3px rgba(127, 86, 217, 0.12);
+}
+
+#formEditarOrcamento textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* =========================================================
+   PACIENTE
+   ========================================================= */
+
+#formEditarOrcamento input[readonly] {
+  background: #f8fafc !important;
+  color: #475467;
+  cursor: not-allowed !important;
+}
+
+/* =========================================================
+   ITENS DO ORÇAMENTO
+   ========================================================= */
+
+#itens-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  margin-top: 12px;
+}
+
+/* Cada item */
+
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 160px auto;
+  gap: 12px;
+  align-items: end;
+
+  padding: 16px;
+
+  background: #ffffff;
+
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.item-row:hover {
+  border-color: #d0d5dd;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.05);
+}
+
+/* Campos dos itens */
+
+.item-row > div {
+  min-width: 0;
+}
+
+.item-row input[type="number"] {
+  width: 100% !important;
+}
+
+/* =========================================================
+   BOTÃO EXCLUIR ITEM
+   ========================================================= */
+
+.btn-excluir-item {
+  min-height: 42px;
+
+  padding: 10px 14px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #fff1f2;
+  color: #dc2626;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.btn-excluir-item:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btn-excluir-item:active {
+  transform: scale(0.97);
+}
+
+/* =========================================================
+   BOTÃO ADICIONAR ITEM
+   ========================================================= */
+
+.btn-add-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-top: 14px;
+
+  min-height: 42px;
+  padding: 10px 16px;
+
+  border: 1px dashed #98a2b3;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #6941c6;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.btn-add-item:hover {
+  background: #f9f5ff;
+  border-color: #7f56d9;
+  color: #5925b5;
+}
+
+/* =========================================================
+   AVISO DE ORÇAMENTO BLOQUEADO
+   ========================================================= */
+
+.aviso-itens-bloqueados {
+  margin-bottom: 16px !important;
+  padding: 14px 16px;
+
+  border: 1px solid #fedf89;
+  border-radius: 10px;
+
+  background: #fffaeb;
+  color: #7a5b00;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   CONDIÇÕES COMERCIAIS
+   ========================================================= */
+
+#formEditarOrcamento .form-group:has(#num_condicoes) {
+  padding-top: 26px;
+
+  border-top: 1px solid #eaecf0;
+}
+
+/* Texto explicativo */
+
+#num_condicoes {
+  width: 190px !important;
+}
+
+#data_primeiro_vencimento {
+  width: 190px !important;
+}
+
+/* Área dos controles */
+
+#num_condicoes,
+#data_primeiro_vencimento {
+  min-height: 42px;
+}
+
+/* =========================================================
+   PREVISÃO DAS CONDIÇÕES
+   ========================================================= */
+
+.preview-parcelas {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.preview-parcelas table {
+  width: 100%;
+  border-collapse: collapse;
+
+  background: #ffffff;
+
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.preview-parcelas th {
+  padding: 12px 14px;
+
+  background: #f8fafc;
+
+  color: #344054;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  text-align: left;
+
+  border-bottom: 1px solid #e4e7ec;
+}
+
+.preview-parcelas td {
+  padding: 12px 14px;
+
+  color: #475467;
+
+  font-size: 14px;
+
+  border-bottom: 1px solid #f2f4f7;
+}
+
+.preview-parcelas tr:last-child td {
+  border-bottom: 0;
+}
+
+/* =========================================================
+   AÇÕES
+   ========================================================= */
+
+#formEditarOrcamento > .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 44px;
+
+  padding: 10px 18px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: #157347;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease;
+}
+
+#formEditarOrcamento > .btn:hover {
+  background: #12633d;
+}
+
+#formEditarOrcamento > .btn:active {
+  transform: scale(0.98);
+}
+
+/* Cancelar */
+
+#formEditarOrcamento > a {
+  display: inline-flex !important;
+  align-items: center;
+
+  min-height: 44px;
+
+  margin-left: 10px !important;
+  padding: 10px 16px;
+
+  border-radius: 8px;
+
+  color: #475467 !important;
+  background: #f2f4f7;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  text-decoration: none;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+#formEditarOrcamento > a:hover {
+  background: #e4e7ec;
+  color: #101828 !important;
+}
+
+/* =========================================================
+   CAMPOS DESABILITADOS
+   ========================================================= */
+
+#formEditarOrcamento input:disabled,
+#formEditarOrcamento select:disabled,
+#formEditarOrcamento textarea:disabled {
+  background: #f8fafc;
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  #formEditarOrcamento {
+    max-width: 100%;
+  }
+
+  .item-row {
+    grid-template-columns: 1fr 100px;
+  }
+
+  .item-row > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .btn-excluir-item {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .container > h1 {
+    font-size: 23px;
+  }
+
+  .item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .item-row > div {
+    width: 100%;
+  }
+
+  #num_condicoes,
+  #data_primeiro_vencimento {
+    width: 100% !important;
+  }
+
+  #formEditarOrcamento > .btn,
+  #formEditarOrcamento > a {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-top: 10px;
+  }
+}
+
+/* =========================================================
+   CONDIÇÕES COMERCIAIS - REFINAMENTO
+   ========================================================= */
+
+.preview-parcelas {
+  margin-top: 18px;
+  padding: 0;
+
+  color: #344054;
+}
+
+.preview-parcelas h3 {
+  margin: 0 0 12px;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  color: #344054;
+}
+
+.preview-parcelas table {
+  width: 100%;
+
+  border-collapse: separate;
+  border-spacing: 0;
+
+  overflow: hidden;
+
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+.preview-parcelas thead th {
+  padding: 12px 14px;
+
+  background: #f8fafc;
+
+  color: #475467;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-align: left;
+
+  border-bottom: 1px solid #e4e7ec;
+}
+
+.preview-parcelas tbody td {
+  padding: 13px 14px;
+
+  background: #ffffff;
+
+  color: #475467;
+
+  font-size: 14px;
+
+  border-bottom: 1px solid #f2f4f7;
+}
+
+.preview-parcelas tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.preview-parcelas tbody tr:hover td {
+  background: #f9fafb;
+}
+
+/* Valor */
+
+.preview-parcelas td:last-child,
+.preview-parcelas th:last-child {
+  text-align: right;
+}
+
+.preview-parcelas td:last-child {
+  font-weight: 600;
+  color: #344054;
+}
+
+/* Total */
+
+.preview-parcelas .total {
+  margin-top: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px 16px;
+
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+
+  background: #f8fafc;
+
+  color: #344054;
+
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-parcelas .total strong {
+  color: #157347;
+  font-size: 16px;
+}
+
+/* =========================================================
+   PREVIEW DAS CONDIÇÕES COMERCIAIS
+   ========================================================= */
+
+.preview-titulo {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #6d35e8;
+}
+
+.preview-condicao {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 20px;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.preview-condicao strong {
+  color: #6d35e8;
+  font-weight: 700;
+  text-align: right;
+}
+
+.preview-total {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 15px;
+  color: #172033;
+}
+
+.preview-total strong {
+  font-weight: 700;
+}
+
+/* =========================================================
+   ITENS DO ORÇAMENTO
+   ========================================================= */
+
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 145px auto;
+  align-items: center;
+  gap: 10px;
+
+  padding: 14px;
+
+  margin-bottom: 12px;
+
+  background: #fff;
+
+  border: 1px solid #d9e0e7;
+  border-radius: 10px;
+
+  box-sizing: border-box;
+}
+
+.item-row input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.item-row input[type="number"] {
+  width: 100%;
+}
+
+.btn-excluir-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  min-height: 40px;
+
+  padding: 0 14px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #fff0f1;
+  color: #dc3545;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.btn-excluir-item:hover {
+  background: #ffe0e3;
+}
+
+.btn-excluir-item:active {
+  transform: translateY(1px);
+}
+
+/* =========================================================
+   BOTÃO ADICIONAR ITEM
+   ========================================================= */
+
+.btn-adicionar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 10px 15px;
+
+  background: #fff;
+
+  border: 1px dashed #8c72d8;
+  border-radius: 8px;
+
+  color: #6338c8;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.btn-adicionar-item:hover {
+  background: #f7f4ff;
+  border-color: #6338c8;
+}
+
+/* =========================================================
+   RESPONSIVO
+   ========================================================= */
+
+@media (max-width: 850px) {
+  .item-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .item-descricao {
+    grid-column: 1 / -1;
+  }
+
+  .btn-excluir-item {
+    width: 100%;
+  }
+}
+
+@media (max-width: 550px) {
+  .item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .item-descricao {
+    grid-column: auto;
+  }
+
+  .btn-excluir-item {
+    width: 100%;
+  }
+
+  .preview-condicao {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .preview-condicao strong {
+    text-align: left;
+  }
+}

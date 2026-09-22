@@ -357,106 +357,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         |--------------------------------------------------------------------------
         */
 
-        $num_parcelas = (int)(
-            $_POST['num_parcelas'] ?? 1
+        $num_parcelas = (int)($_POST['num_parcelas'] ?? 1);
+        $data_primeiro_vencimento = $_POST['data_primeiro_vencimento'] ?? '';
+
+        if ($num_parcelas < 1 || $num_parcelas > 24) {
+            throw new Exception('Número de condições inválido.');
+        }
+
+        $dataBase = DateTimeImmutable::createFromFormat(
+            '!Y-m-d',
+            $data_primeiro_vencimento
         );
 
-
-        if ($num_parcelas <= 0) {
-            $num_parcelas = 1;
+        if (
+            !$dataBase ||
+            $dataBase->format('Y-m-d') !== $data_primeiro_vencimento
+        ) {
+            throw new Exception('Data do primeiro vencimento inválida.');
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | GERAR PARCELAS
-        |--------------------------------------------------------------------------
-        */
 
-        if (
-            $num_parcelas > 0 &&
-            $total_itens > 0
-        ) {
+
+        /*
+|--------------------------------------------------------------------------
+| GERAR CONDIÇÕES COMERCIAIS
+|--------------------------------------------------------------------------
+*/
+
+        function adicionarMesesMantendoDia(
+            DateTimeImmutable $data,
+            int $meses
+        ): DateTimeImmutable {
+
+            $diaOriginal = (int)$data->format('d');
+
+            $primeiroDiaMesDestino = $data->modify(
+                'first day of +' . $meses . ' month'
+            );
+
+            $ultimoDiaMesDestino = (int)$primeiroDiaMesDestino->format('t');
+
+            $diaFinal = min(
+                $diaOriginal,
+                $ultimoDiaMesDestino
+            );
+
+            return $primeiroDiaMesDestino->modify(
+                '+' . ($diaFinal - 1) . ' days'
+            );
+        }
+
+        if ($num_parcelas > 0 && $total_itens > 0) {
 
             /*
-            | Valor base
-            */
+    |--------------------------------------------------------------------------
+    | Valor base
+    |--------------------------------------------------------------------------
+    | Divide o total igualmente entre as condições.
+    | A última condição recebe eventual diferença de centavos.
+    |--------------------------------------------------------------------------
+    */
 
-            $valor_parcela_base = round(
+            $valor_base = round(
                 $total_itens / $num_parcelas,
                 2
             );
 
+            $valor_acumulado = 0;
 
-            $stmtParcela = $pdo->prepare("
-                INSERT INTO parcelas (
-                    orcamento_id,
-                    numero_parcela,
-                    valor,
-                    vencimento,
-                    status
-                )
-                VALUES (?, ?, ?, ?, 'pendente')
-            ");
+            for ($i = 1; $i <= $num_parcelas; $i++) {
 
+                if ($i < $num_parcelas) {
 
-            /*
-            |--------------------------------------------------------------------------
-            | CRIAR PARCELAS
-            |--------------------------------------------------------------------------
-            */
-
-            for (
-                $i = 1;
-                $i <= $num_parcelas;
-                $i++
-            ) {
-
-                /*
-                | A última parcela recebe o ajuste
-                | dos centavos para fechar exatamente
-                | o valor total.
-                */
-
-                if (
-                    $i === $num_parcelas
-                ) {
-
-                    $valor_final = round(
-                        $total_itens -
-                            (
-                                $valor_parcela_base *
-                                ($num_parcelas - 1)
-                            ),
-                        2
-                    );
+                    $valor_condicao = $valor_base;
                 } else {
 
-                    $valor_final =
-                        $valor_parcela_base;
+                    $valor_condicao = round(
+                        $total_itens - $valor_acumulado,
+                        2
+                    );
                 }
 
-
-                /*
-                | Vencimento:
-                | 1ª parcela = próximo mês
-                | 2ª parcela = mês seguinte
-                | etc.
-                */
-
-                $vencimento = date(
-                    'Y-m-d',
-                    strtotime(
-                        "+{$i} month"
-                    )
+                $valor_acumulado = round(
+                    $valor_acumulado + $valor_condicao,
+                    2
                 );
 
+                $dataCondicao = adicionarMesesMantendoDia(
+                    $dataBase,
+                    $i - 1
+                );
 
-                $stmtParcela->execute([
+                $stmtCondicao = $pdo->prepare("
+            INSERT INTO orcamentos_condicoes (
+                orcamento_id,
+                numero,
+                valor,
+                vencimento_previsto
+            )
+            VALUES (?, ?, ?, ?)
+        ");
+
+                $stmtCondicao->execute([
                     $orcamento_id,
                     $i,
-                    $valor_final,
-                    $vencimento
+                    $valor_condicao,
+                    $dataCondicao->format('Y-m-d')
                 ]);
             }
         }
@@ -577,7 +584,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         content="width=device-width, initial-scale=1.0">
 
     <title>
-        Novo Orçamento - Dentech
+        Novo Orçamento - Evoluqi
     </title>
 
     <link rel="stylesheet" href="css/global.css">
@@ -856,7 +863,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ">
 
                 <label>
-                    Parcelamento
+                    Condições comerciais
                 </label>
 
 
@@ -879,6 +886,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endfor; ?>
 
                 </select>
+
+                <div class="form-group">
+                    <label for="data_primeiro_vencimento">
+                        Primeiro vencimento
+                    </label>
+
+                    <input
+                        type="date"
+                        id="data_primeiro_vencimento"
+                        name="data_primeiro_vencimento"
+                        value="<?= htmlspecialchars($_POST['data_primeiro_vencimento'] ?? date('Y-m-d')) ?>"
+                        required>
+                </div>
 
 
                 <div
@@ -1190,98 +1210,196 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         function calcularPreviewParcelas() {
 
-            const qtdParcelas =
+            const qtdCondicoes =
                 parseInt(
-                    document.getElementById(
-                        'num_parcelas'
-                    ).value
+                    document.getElementById('num_parcelas').value
                 ) || 1;
 
+            const dataPrimeiroVencimento =
+                document.getElementById('data_primeiro_vencimento')?.value || '';
 
             let total = 0;
-
 
             document
                 .querySelectorAll('.item-row')
                 .forEach(row => {
 
                     const qtdInput =
-                        row.querySelector(
-                            '[name="quantidade[]"]'
-                        );
-
+                        row.querySelector('[name="quantidade[]"]');
 
                     const valInput =
-                        row.querySelector(
-                            '[name="valor[]"]'
-                        );
-
+                        row.querySelector('[name="valor[]"]');
 
                     const qtd =
-                        parseInt(
-                            qtdInput?.value
-                        ) || 1;
-
+                        parseInt(qtdInput?.value) || 1;
 
                     const val =
-                        parseFloat(
-                            valInput?.value
-                        ) || 0;
+                        parseFloat(valInput?.value) || 0;
 
-
-                    total +=
-                        qtd * val;
+                    total += qtd * val;
                 });
 
-
-            const valorParcela =
-                total / qtdParcelas;
-
-
             const preview =
-                document.getElementById(
-                    'preview_parcelas'
-                );
-
+                document.getElementById('preview_parcelas');
 
             if (total === 0) {
 
                 preview.textContent =
-                    'Adicione itens para calcular parcelas';
+                    'Adicione itens para calcular as condições comerciais.';
 
-                preview.style.color =
-                    '#999';
+                preview.style.color = '#999';
 
                 return;
             }
 
-
-            if (qtdParcelas === 1) {
-
-                preview.textContent =
-                    `À vista: R$ ${
-                total
-                    .toFixed(2)
-                    .replace('.', ',')
-            }`;
-
-            } else {
+            if (!dataPrimeiroVencimento) {
 
                 preview.textContent =
-                    `${qtdParcelas}x de R$ ${
-                valorParcela
-                    .toFixed(2)
-                    .replace('.', ',')
-            } (Total: R$ ${
-                total
-                    .toFixed(2)
-                    .replace('.', ',')
-            })`;
+                    'Informe o primeiro vencimento para visualizar as condições.';
+
+                preview.style.color = '#999';
+
+                return;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Converter data YYYY-MM-DD para uma data local
+            |--------------------------------------------------------------------------
+            */
 
-            preview.style.color =
-                '#7b3ff2';
+            const partesData =
+                dataPrimeiroVencimento.split('-');
+
+            const ano =
+                parseInt(partesData[0]);
+
+            const mes =
+                parseInt(partesData[1]) - 1;
+
+            const dia =
+                parseInt(partesData[2]);
+
+            const dataBase =
+                new Date(ano, mes, dia);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Valor das condições
+            |--------------------------------------------------------------------------
+            */
+
+            const valorBase =
+                Math.round(
+                    (total / qtdCondicoes) * 100
+                ) / 100;
+
+            let valorAcumulado = 0;
+
+            let html = '';
+
+            for (
+                let i = 1; i <= qtdCondicoes; i++
+            ) {
+
+                let valorCondicao;
+
+                if (i < qtdCondicoes) {
+
+                    valorCondicao = valorBase;
+
+                } else {
+
+                    valorCondicao =
+                        Math.round(
+                            (total - valorAcumulado) * 100
+                        ) / 100;
+                }
+
+                valorAcumulado =
+                    Math.round(
+                        (valorAcumulado + valorCondicao) * 100
+                    ) / 100;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Calcular vencimento
+                |--------------------------------------------------------------------------
+                */
+
+                const dataVencimento =
+                    new Date(
+                        dataBase.getFullYear(),
+                        dataBase.getMonth() + (i - 1),
+                        1
+                    );
+
+                const ultimoDiaMes =
+                    new Date(
+                        dataVencimento.getFullYear(),
+                        dataVencimento.getMonth() + 1,
+                        0
+                    ).getDate();
+
+                const diaFinal =
+                    Math.min(
+                        dia,
+                        ultimoDiaMes
+                    );
+
+                dataVencimento.setDate(diaFinal);
+
+                /*
+                |--------------------------------------------------------------------------
+                | Formatar data
+                |--------------------------------------------------------------------------
+                */
+
+                const diaFormatado =
+                    String(
+                        dataVencimento.getDate()
+                    ).padStart(2, '0');
+
+                const mesFormatado =
+                    String(
+                        dataVencimento.getMonth() + 1
+                    ).padStart(2, '0');
+
+                const anoFormatado =
+                    dataVencimento.getFullYear();
+
+                const dataFormatada =
+                    `${diaFormatado}/${mesFormatado}/${anoFormatado}`;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Montar preview
+                |--------------------------------------------------------------------------
+                */
+
+                html += `
+            <div style="margin-bottom:4px;">
+                ${i}ª condição —
+                R$ ${valorCondicao
+                    .toFixed(2)
+                    .replace('.', ',')}
+                — Vencimento previsto:
+                ${dataFormatada}
+            </div>
+        `;
+            }
+
+            html += `
+        <div style="margin-top:8px;">
+            Total: R$ ${total
+                .toFixed(2)
+                .replace('.', ',')}
+        </div>
+    `;
+
+            preview.innerHTML = html;
+
+            preview.style.color = '#7b3ff2';
         }
 
 
@@ -1301,6 +1419,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 document
                     .getElementById('num_parcelas')
+                    .addEventListener(
+                        'change',
+                        calcularPreviewParcelas
+                    );
+
+                document
+                    .getElementById('data_primeiro_vencimento')
                     .addEventListener(
                         'change',
                         calcularPreviewParcelas
