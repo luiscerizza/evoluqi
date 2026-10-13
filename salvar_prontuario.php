@@ -80,17 +80,44 @@ try {
 
     if (isset($_POST['id']) && !empty($_POST['id'])) {
         // EDITAR
+
+        $id = (int) $_POST['id'];
+
+        if ($id <= 0) {
+            throw new Exception("ID do prontuário inválido.");
+        }
+
+        // Verifica se o prontuário existe e se está arquivado
+        $stmt_verificacao = $pdo->prepare("
+        SELECT id, arquivado
+        FROM prontuarios
+        WHERE id = ?
+        LIMIT 1
+    ");
+
+        $stmt_verificacao->execute([$id]);
+
+        $prontuario_existente = $stmt_verificacao->fetch(PDO::FETCH_ASSOC);
+
+        if (!$prontuario_existente) {
+            throw new Exception("Prontuário não encontrado.");
+        }
+
+        if ((int) $prontuario_existente['arquivado'] === 1) {
+            throw new Exception("Este prontuário está arquivado e não pode ser editado.");
+        }
+
         $stmt = $pdo->prepare("
-            UPDATE prontuarios SET
-                paciente = ?, nascimento = ?, sexo = ?, estado_civil = ?, profissao = ?,
-                rg = ?, cpf = ?, endereco = ?, cep = ?, telefone = ?, email = ?,
-                tratamento_odonto = ?, tratamento_medico = ?, medicamento_continuo = ?,
-                alergia_medicamento = ?, alergia_outras = ?, problemas_saude = ?,
-                gravida_meses = ?, fuma_tempo = ?, fuma_cigarros_dia = ?,
-                bebida_frequencia = ?, drogas_uso = ?, doencas_transmissiveis = ?,
-                cancer_familiar = ?, tratamento_cancer = ?, observacoes = ?
-            WHERE id = ?
-        ");
+        UPDATE prontuarios SET
+            paciente = ?, nascimento = ?, sexo = ?, estado_civil = ?, profissao = ?,
+            rg = ?, cpf = ?, endereco = ?, cep = ?, telefone = ?, email = ?,
+            tratamento_odonto = ?, tratamento_medico = ?, medicamento_continuo = ?,
+            alergia_medicamento = ?, alergia_outras = ?, problemas_saude = ?,
+            gravida_meses = ?, fuma_tempo = ?, fuma_cigarros_dia = ?,
+            bebida_frequencia = ?, drogas_uso = ?, doencas_transmissiveis = ?,
+            cancer_familiar = ?, tratamento_cancer = ?, observacoes = ?
+        WHERE id = ?
+    ");
         $stmt->execute([
             $paciente,
             $nascimento,
@@ -118,12 +145,13 @@ try {
             $cancer_familiar,
             $tratamento_cancer,
             $_POST['observacoes'] ?? '',
-            (int)$_POST['id']
+            $id
         ]);
 
         echo json_encode(['success' => true, 'redirect' => 'prontuarios.php']);
     } else {
         // CRIAR NOVO
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare("
             INSERT INTO prontuarios (
                 paciente, nascimento, sexo, estado_civil, profissao,
@@ -172,20 +200,123 @@ try {
             $_POST['observacoes'] ?? ''
         ]);
 
-        $novo_id = $pdo->lastInsertId();
+        $novo_id = (int) $pdo->lastInsertId();
+
+        /*
+ * Inicializa o odontograma do paciente.
+ *
+ * 32 dentes permanentes
+ * 20 dentes decíduos
+ *
+ * Todos começam como "nao_avaliado".
+ */
+        $dentes_permanentes = [
+            '11',
+            '12',
+            '13',
+            '14',
+            '15',
+            '16',
+            '17',
+            '18',
+            '21',
+            '22',
+            '23',
+            '24',
+            '25',
+            '26',
+            '27',
+            '28',
+            '31',
+            '32',
+            '33',
+            '34',
+            '35',
+            '36',
+            '37',
+            '38',
+            '41',
+            '42',
+            '43',
+            '44',
+            '45',
+            '46',
+            '47',
+            '48'
+        ];
+
+        $dentes_deciduos = [
+            '51',
+            '52',
+            '53',
+            '54',
+            '55',
+            '61',
+            '62',
+            '63',
+            '64',
+            '65',
+            '71',
+            '72',
+            '73',
+            '74',
+            '75',
+            '81',
+            '82',
+            '83',
+            '84',
+            '85'
+        ];
+
+        $stmt_odontograma = $pdo->prepare("
+    INSERT INTO odontograma_dentes (
+        prontuario_id,
+        numero_dente,
+        denticao,
+        estado_geral
+    ) VALUES (?, ?, ?, 'nao_avaliado')
+");
+
+        foreach ($dentes_permanentes as $numero_dente) {
+            $stmt_odontograma->execute([
+                $novo_id,
+                $numero_dente,
+                'permanente'
+            ]);
+        }
+
+        foreach ($dentes_deciduos as $numero_dente) {
+            $stmt_odontograma->execute([
+                $novo_id,
+                $numero_dente,
+                'decidua'
+            ]);
+        }
+
         registrarLog(
             $pdo,
             'Criou prontuário',
             'prontuarios',
             $novo_id,
-            'Novo paciente cadastrado no prontuário'
+            'Novo paciente cadastrado no prontuário e odontograma inicializado'
         );
-        echo json_encode(['success' => true, 'redirect' => 'termo_conscentimento.php?id=' . $novo_id]);
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'redirect' => 'termo_conscentimento.php?id=' . $novo_id
+        ]);
     }
 
     exit; // ← Importante: evita saída adicional
 
 } catch (PDOException $e) {
+
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     if ($e->errorInfo[1] == 1062) {
         http_response_code(409);
         echo json_encode([
@@ -202,6 +333,10 @@ try {
 
     exit;
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
     http_response_code(400);
     echo json_encode([
         'success' => false,

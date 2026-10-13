@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 300" role="img" aria-labelledby="title desc">
+  <title id="title">Representação de dente</title>
+  <desc id="desc">Ilustração vetorial simples de um dente para o odontograma.</desc>
+  <defs>
+    <linearGradient id="tooth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eaf0f6"/>
+    </linearGradient>
+  </defs>
+  <path d="M73 26 C58 27 43 36 37 51 C30 67 34 86 40 103 C47 123 53 139 51 162 C49 190 50 224 63 250 C70 264 80 270 90 264 C101 257 103 235 109 218 C113 207 120 202 127 218 C133 235 135 257 146 264 C156 270 166 264 173 250 C186 224 187 190 185 162 C183 139 189 123 196 103 C202 86 206 67 199 51 C193 36 178 27 163 26 C148 25 139 31 127 39 C120 44 116 44 109 39 C97 31 88 25 73 26 Z" fill="url(#tooth)" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M55 73 C77 58 101 57 120 66 C139 57 163 58 185 73" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 105 C92 96 106 96 120 104 C134 96 148 96 162 105" fill="none" stroke="#d5dde6" stroke-width="3" stroke-linecap="round"/>
+</svg>

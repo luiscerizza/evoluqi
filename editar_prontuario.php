@@ -14,6 +14,13 @@ if (!$is_new) {
     if (!$prontuario) {
         die("Prontuário não encontrado.");
     }
+    if (
+        !$is_new &&
+        isset($prontuario['arquivado']) &&
+        (int)$prontuario['arquivado'] === 1
+    ) {
+        die("Este prontuário está arquivado e não pode ser editado.");
+    }
 }
 
 function calcularIdade($dataNascimento)
@@ -38,7 +45,7 @@ if (!$is_new && !empty($prontuario['nascimento'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $is_new ? 'Novo Prontuário' : 'Editar Prontuário' ?> - Dentech</title>
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/variables.css">
@@ -470,7 +477,7 @@ if (!$is_new && !empty($prontuario['nascimento'])) {
 
                         <!-- Ações -->
                         <div class="actions">
-                            <button type="button" class="btn cancel" onclick="window.location='prontuarios.php'">Cancelar</button>
+                            <button type="button" class="btn cancel" onclick="window.location='visualizar_prontuario.php?id=<?= $prontuario['id'] ?? '' ?>'">Cancelar</button>
                             <?php if (!$is_new): ?>
                                 <button type="button" class="btn delete" onclick="deleteProntuario()">Excluir</button>
                             <?php endif; ?>

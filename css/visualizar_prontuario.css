@@ -1,0 +1,3487 @@
+/* =========================================================
+   EVOLUQI — VISUALIZAÇÃO DO PRONTUÁRIO
+   Compatível com visualizar_prontuario.php
+   ========================================================= */
+
+/* ---------- Base da página ---------- */
+
+.prontuario-page {
+  width: calc(100% - 220px);
+  margin-left: 220px;
+  min-height: 100vh;
+  padding: 28px 34px 50px;
+  box-sizing: border-box;
+  background: #f7f9fc;
+  color: #172033;
+}
+
+.prontuario-page *,
+.prontuario-page *::before,
+.prontuario-page *::after {
+  box-sizing: border-box;
+}
+
+/* Evita que regras globais do layout empurrem ou cortem a página */
+.prontuario-page .container,
+.prontuario-page .content {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Mensagens da página ---------- */
+
+.prontuario-page .page-alert {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 13px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.prontuario-page .page-alert > i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 15px;
+  color: #dc2626;
+}
+
+.prontuario-page .page-alert > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.prontuario-page .page-alert strong {
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.prontuario-page .page-alert span {
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.prontuario-page .page-alert-close {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.prontuario-page .page-alert-close:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ---------- Cabeçalho ---------- */
+
+.prontuario-page .page-header {
+  width: 100%;
+  margin: 0 0 22px;
+  padding: 0;
+}
+
+.prontuario-page .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.prontuario-page .breadcrumb-separator {
+  color: #94a3b8;
+}
+
+.prontuario-page .page-header h1 {
+  margin: 0;
+  color: #172554;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.prontuario-page .page-header p {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* ---------- Cabeçalho do paciente ---------- */
+
+.prontuario-page .patient-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 22px 24px;
+  background: #fff;
+  border: 1px solid #dce4ee;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.prontuario-page .patient-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.prontuario-page .patient-avatar {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e0f2f7;
+  color: #0786a6;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.prontuario-page .patient-info {
+  min-width: 0;
+}
+
+.prontuario-page .patient-info h2 {
+  margin: 0 0 9px;
+  color: #172554;
+  font-size: 23px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.prontuario-page .patient-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 19px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.prontuario-page .patient-details span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.prontuario-page .patient-details i {
+  color: #1e3a5f;
+}
+
+/* ---------- Ações do paciente ---------- */
+
+.prontuario-page .patient-actions {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.prontuario-page .action-btn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #d7e0eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.prontuario-page .action-btn:hover {
+  border-color: #2563eb;
+  background: #f8fbff;
+  color: #2563eb;
+}
+
+.prontuario-page .action-btn i {
+  font-size: 12px;
+}
+
+/* ---------- Menu Mais ---------- */
+
+.prontuario-page .more-wrapper {
+  position: relative;
+}
+
+.prontuario-page .more-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 1000;
+  display: none;
+  width: 235px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #dce4ee;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+
+.prontuario-page .more-menu.show {
+  display: block;
+}
+
+.prontuario-page .more-menu a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border-radius: 7px;
+  color: #334155;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.prontuario-page .more-menu a:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+}
+
+.prontuario-page .more-menu i {
+  width: 16px;
+  text-align: center;
+}
+
+/* ---------- Abas ---------- */
+
+.prontuario-page .patient-tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 0;
+  border-bottom: 1px solid #dbe3ec;
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.prontuario-page .patient-tab {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 47px;
+  padding: 0 20px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  outline: none;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.18s ease;
+}
+
+.prontuario-page .patient-tab:hover {
+  color: #2563eb;
+  background: #f8fafc;
+}
+
+.prontuario-page .patient-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+/* ---------- Conteúdo das abas ---------- */
+
+.prontuario-page .tab-content {
+  display: none;
+  width: 100%;
+}
+
+.prontuario-page .tab-content.active {
+  display: block;
+}
+
+/* ---------- Grid de conteúdo ---------- */
+
+.prontuario-page .content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  width: 100%;
+  margin: 0;
+}
+
+/* ---------- Cards ---------- */
+
+.prontuario-page .info-card {
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #dce4ee;
+  border-radius: 13px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
+}
+
+.prontuario-page .content-grid .info-card {
+  margin-bottom: 0;
+}
+
+.prontuario-page .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin: 0 0 17px;
+}
+
+.prontuario-page .card-header h2 {
+  margin: 0;
+  color: #172554;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.prontuario-page .card-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.prontuario-page .card-link {
+  flex-shrink: 0;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.prontuario-page .card-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Informações pessoais ---------- */
+
+.prontuario-page .info-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+.prontuario-page .info-item {
+  display: grid;
+  grid-template-columns: minmax(100px, 135px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.prontuario-page .info-item:nth-child(odd) {
+  padding-right: 20px;
+}
+
+.prontuario-page .info-item:nth-child(even) {
+  padding-left: 20px;
+  border-left: 1px solid #edf1f5;
+}
+
+.prontuario-page .info-item:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.prontuario-page .info-item-full {
+  grid-column: 1 / -1;
+  padding-right: 0 !important;
+  padding-left: 0 !important;
+  border-left: 0 !important;
+  border-bottom: 0 !important;
+}
+
+.prontuario-page .info-item strong {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.prontuario-page .info-item span {
+  min-width: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.prontuario-page .muted,
+.prontuario-page .empty-text {
+  color: #94a3b8;
+}
+
+/* ---------- Observações ---------- */
+
+.prontuario-page .observacoes {
+  min-height: 75px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: normal;
+}
+
+.prontuario-page .empty-text {
+  display: block;
+  padding: 5px 0;
+}
+
+/* ---------- Consentimento ---------- */
+
+.prontuario-page .consent-card {
+  margin-top: 18px;
+}
+
+.prontuario-page .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.prontuario-page .status-accepted {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.prontuario-page .status-pending {
+  background: #fef3c7;
+  color: #a16207;
+}
+
+.prontuario-page .consent-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.prontuario-page .consent-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.prontuario-page .consent-icon {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.prontuario-page .consent-status.accepted .consent-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.prontuario-page .consent-status.pending .consent-icon {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.prontuario-page .consent-status strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.prontuario-page .consent-status span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.prontuario-page .consent-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 39px;
+  padding: 0 15px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: 0.18s ease;
+}
+
+.prontuario-page .consent-button:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.prontuario-page .consent-accepted-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- Procedimentos ---------- */
+
+.prontuario-page .procedures-card {
+  margin-top: 18px;
+}
+
+.prontuario-page .table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+
+.prontuario-page .procedures-table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+}
+
+.prontuario-page .procedures-table th {
+  padding: 12px 13px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.prontuario-page .procedures-table td {
+  padding: 13px;
+  border-bottom: 1px solid #edf1f5;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  vertical-align: middle;
+}
+
+.prontuario-page .procedures-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.prontuario-page .procedures-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.prontuario-page .procedures-table td strong {
+  color: #334155;
+}
+
+.prontuario-page .table-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d6e0ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #2563eb;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prontuario-page .table-action:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.prontuario-page .empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 150px;
+  padding: 25px;
+  color: #64748b;
+  text-align: center;
+}
+
+.prontuario-page .empty-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.prontuario-page .empty-state strong {
+  color: #475569;
+  font-size: 13px;
+}
+
+.prontuario-page .empty-state span {
+  font-size: 12px;
+}
+
+/* ---------- Abas futuras ---------- */
+
+.prontuario-page .future-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  min-height: 230px;
+  text-align: center;
+}
+
+.prontuario-page .future-icon {
+  width: 55px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 13px;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 21px;
+}
+
+.prontuario-page .future-card h2 {
+  margin: 0 0 7px;
+  color: #172554;
+  font-size: 18px;
+}
+
+.prontuario-page .future-card p {
+  max-width: 500px;
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   MODAL DE PROCEDIMENTO
+   ========================================================= */
+
+#procedureModal.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease;
+}
+
+#procedureModal.modal.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#procedureModal .modal-content {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dbe3ec;
+  border-radius: 14px;
+  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.25);
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.18s ease;
+}
+
+#procedureModal.modal.show .modal-content {
+  transform: translateY(0) scale(1);
+}
+
+#procedureModal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+#procedureModal .modal-header h2 {
+  margin: 0;
+  color: #172554;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+#procedureModal .modal-close {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #dbe3ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#procedureModal .modal-close:hover {
+  background: #f8fafc;
+  color: #ef4444;
+}
+
+#procedureModal .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+#procedureModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid #e5eaf0;
+}
+
+#procedureModal .modal-button {
+  min-height: 37px;
+  padding: 0 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#procedureModal .modal-button:hover {
+  background: #f8fafc;
+}
+
+#procedureModal .modal-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 11px 0;
+  border-bottom: 1px solid #edf1f5;
+}
+
+#procedureModal .modal-info strong,
+#procedureModal .modal-section strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+#procedureModal .modal-info span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+#procedureModal .modal-section {
+  margin-top: 18px;
+}
+
+#procedureModal .modal-section p {
+  margin: 7px 0 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+#procedureModal .modal-empty {
+  margin: 18px 0 0;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* =========================================================
+   IMPRESSÃO
+   ========================================================= */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  body.print-mode {
+    background: #fff !important;
+  }
+
+  /*
+     * O navbar não é incluído no modo print pelo PHP.
+     * Estas regras também protegem contra elementos globais.
+     */
+  .navbar,
+  .sidebar,
+  nav:not(.patient-tabs),
+  .page-actions,
+  .patient-actions,
+  .patient-tabs,
+  .more-menu,
+  #procedureModal,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  .prontuario-page {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    background: #fff !important;
+  }
+
+  .prontuario-page .page-alert {
+    display: none !important;
+  }
+
+  .prontuario-page .page-header {
+    margin-bottom: 16px;
+  }
+
+  .prontuario-page .page-header h1 {
+    font-size: 21px;
+    color: #111827;
+  }
+
+  .prontuario-page .page-header p {
+    font-size: 10px;
+    color: #4b5563;
+  }
+
+  .prontuario-page .breadcrumb {
+    font-size: 9px;
+  }
+
+  .prontuario-page .patient-header {
+    display: block;
+    margin-bottom: 14px;
+    padding: 0 0 13px;
+    border: 0;
+    border-bottom: 1px solid #cbd5e1;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+
+  .prontuario-page .patient-main {
+    gap: 12px;
+  }
+
+  .prontuario-page .patient-avatar {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 16px;
+  }
+
+  .prontuario-page .patient-info h2 {
+    margin-bottom: 5px;
+    font-size: 18px;
+    color: #111827;
+  }
+
+  .prontuario-page .patient-details {
+    gap: 5px 12px;
+    color: #374151;
+    font-size: 9px;
+  }
+
+  /*
+     * No modo impressão, o PHP mantém todos os conteúdos
+     * em uma única página contínua.
+     */
+  .prontuario-page .tab-content {
+    display: block !important;
+  }
+
+  .prontuario-page .content-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .prontuario-page .info-card {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    box-shadow: none;
+    background: #fff;
+    page-break-inside: avoid;
+  }
+
+  .prontuario-page .card-header {
+    margin-bottom: 9px;
+  }
+
+  .prontuario-page .card-header h2 {
+    font-size: 12px;
+    color: #111827;
+  }
+
+  .prontuario-page .card-kicker {
+    font-size: 7px;
+  }
+
+  .prontuario-page .info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-page .info-item,
+  .prontuario-page .info-item:nth-child(odd),
+  .prontuario-page .info-item:nth-child(even) {
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: 8px;
+    padding: 5px 0;
+    border-left: 0;
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  .prontuario-page .info-item:last-child {
+    border-bottom: 0;
+  }
+
+  .prontuario-page .info-item strong,
+  .prontuario-page .info-item span,
+  .prontuario-page .observacoes {
+    font-size: 8.5px;
+  }
+
+  .prontuario-page .observacoes {
+    min-height: 30px;
+    line-height: 1.45;
+  }
+
+  .prontuario-page .consent-content {
+    display: block;
+  }
+
+  .prontuario-page .consent-status {
+    gap: 8px;
+  }
+
+  .prontuario-page .consent-icon {
+    width: 27px;
+    height: 27px;
+    min-width: 27px;
+    font-size: 10px;
+  }
+
+  .prontuario-page .consent-status strong,
+  .prontuario-page .consent-status span {
+    font-size: 8.5px;
+  }
+
+  .prontuario-page .consent-button,
+  .prontuario-page .consent-accepted-label {
+    display: none !important;
+  }
+
+  .prontuario-page .procedures-table {
+    min-width: 0;
+  }
+
+  .prontuario-page .procedures-table th,
+  .prontuario-page .procedures-table td {
+    padding: 5px 6px;
+    font-size: 8px;
+  }
+
+  .prontuario-page .table-action {
+    display: none !important;
+  }
+
+  .prontuario-page .future-card {
+    min-height: 80px;
+  }
+
+  .prontuario-page .future-icon {
+    display: none;
+  }
+
+  .prontuario-page .future-card h2 {
+    font-size: 11px;
+  }
+
+  .prontuario-page .future-card p {
+    font-size: 8px;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .prontuario-page {
+    padding: 24px 24px 40px;
+  }
+
+  .prontuario-page .patient-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .prontuario-page .patient-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .prontuario-page .more-menu {
+    left: 0;
+    right: auto;
+  }
+}
+
+@media (max-width: 800px) {
+  .prontuario-page {
+    width: calc(100% - 220px);
+    margin-left: 220px;
+    padding: 20px;
+  }
+
+  .prontuario-page .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-page .info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-page .info-item,
+  .prontuario-page .info-item:nth-child(odd),
+  .prontuario-page .info-item:nth-child(even) {
+    padding-left: 0;
+    padding-right: 0;
+    border-left: 0;
+  }
+
+  .prontuario-page .info-item:nth-last-child(-n + 2) {
+    border-bottom: 1px solid #edf1f5;
+  }
+
+  .prontuario-page .info-item:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .prontuario-page {
+    width: 100%;
+    margin-left: 0;
+    padding: 16px;
+  }
+
+  .prontuario-page .page-header h1 {
+    font-size: 24px;
+  }
+
+  .prontuario-page .patient-header {
+    padding: 18px;
+  }
+
+  .prontuario-page .patient-main {
+    align-items: flex-start;
+  }
+
+  .prontuario-page .patient-avatar {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+  }
+
+  .prontuario-page .patient-details span {
+    white-space: normal;
+  }
+
+  .prontuario-page .patient-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prontuario-page .action-btn {
+    width: 100%;
+  }
+
+  .prontuario-page .more-wrapper {
+    width: 100%;
+  }
+
+  .prontuario-page .more-wrapper .action-btn {
+    width: 100%;
+  }
+
+  .prontuario-page .more-menu {
+    width: 100%;
+  }
+
+  .prontuario-page .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .prontuario-page .consent-content {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .prontuario-page .consent-button {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   AJUSTE DA TABELA DE PROCEDIMENTOS
+   ========================================================= */
+
+.prontuario-page .procedures-table {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+.prontuario-page .procedures-table th,
+.prontuario-page .procedures-table td {
+  box-sizing: border-box;
+}
+
+.prontuario-page .procedures-table th:nth-child(1),
+.prontuario-page .procedures-table td:nth-child(1) {
+  width: 10%;
+}
+
+.prontuario-page .procedures-table th:nth-child(2),
+.prontuario-page .procedures-table td:nth-child(2) {
+  width: 15%;
+}
+
+.prontuario-page .procedures-table th:nth-child(3),
+.prontuario-page .procedures-table td:nth-child(3) {
+  width: 24%;
+}
+
+.prontuario-page .procedures-table th:nth-child(4),
+.prontuario-page .procedures-table td:nth-child(4) {
+  width: 26%;
+}
+
+.prontuario-page .procedures-table th:nth-child(5),
+.prontuario-page .procedures-table td:nth-child(5) {
+  width: 25%;
+}
+
+.prontuario-page .procedure-values {
+  min-width: 190px;
+  white-space: nowrap;
+}
+
+.prontuario-page .procedure-value-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 3px;
+}
+
+.prontuario-page .procedure-value-line span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.prontuario-page .procedure-value-line strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.prontuario-page .procedure-difference {
+  display: inline-flex;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.prontuario-page .difference-positive {
+  color: #b45309;
+}
+
+.prontuario-page .difference-negative {
+  color: #15803d;
+}
+
+.prontuario-page .difference-equal {
+  color: #64748b;
+}
+
+.prontuario-page .procedure-value-muted {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.prontuario-page .procedure-actions {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .prontuario-page .procedures-table {
+    min-width: 850px;
+    table-layout: auto;
+  }
+}
+
+/* =========================================================
+   TABELA DE PROCEDIMENTOS — AJUSTE FINAL
+   ========================================================= */
+.prontuario-page .procedures-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.prontuario-page .procedures-table th,
+.prontuario-page .procedures-table td {
+  vertical-align: middle;
+}
+
+.prontuario-page .procedures-table th:nth-child(1),
+.prontuario-page .procedures-table td:nth-child(1) {
+  width: 11%;
+}
+.prontuario-page .procedures-table th:nth-child(2),
+.prontuario-page .procedures-table td:nth-child(2) {
+  width: 18%;
+}
+.prontuario-page .procedures-table th:nth-child(3),
+.prontuario-page .procedures-table td:nth-child(3) {
+  width: 29%;
+}
+.prontuario-page .procedures-table th:nth-child(4),
+.prontuario-page .procedures-table td:nth-child(4) {
+  width: 22%;
+}
+.prontuario-page .procedures-table th:nth-child(5),
+.prontuario-page .procedures-table td:nth-child(5) {
+  width: 20%;
+}
+
+.prontuario-page .procedure-values {
+  min-width: 0;
+  white-space: normal;
+}
+
+.prontuario-page .procedure-value-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+
+.prontuario-page .procedure-value-line span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.prontuario-page .procedure-value-line strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.prontuario-page .procedure-difference {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.prontuario-page .procedure-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+.prontuario-page .procedure-actions .table-action {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .prontuario-page .procedures-table {
+    min-width: 850px;
+    table-layout: auto;
+  }
+}
+
+/* =========================================================
+   AÇÕES DOS PROCEDIMENTOS
+   Padrão visual alinhado ao módulo Orçamentos
+   ========================================================= */
+
+.prontuario-page .procedure-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: 180px;
+}
+
+.prontuario-page .procedure-actions .form-excluir-procedimento {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+/* Botões/links de ação: mesmo padrão dos Orçamentos */
+.prontuario-page .procedure-actions .acao-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.12s ease;
+}
+
+.prontuario-page .procedure-actions .acao-icone:hover {
+  transform: translateY(-1px);
+}
+
+.prontuario-page .procedure-actions .acao-icone:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* COBRANÇA — amarelo */
+.prontuario-page .procedure-actions .acao-cobranca {
+  color: #d97706;
+  border: 1px solid #fcd34d;
+}
+
+.prontuario-page .procedure-actions .acao-cobranca:hover {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+/* EDITAR — roxo */
+.prontuario-page .procedure-actions .acao-editar {
+  color: #7c3aed;
+  border: 1px solid #c4b5fd;
+}
+
+.prontuario-page .procedure-actions .acao-editar:hover {
+  color: #6d28d9;
+  background: #f5f3ff;
+  border-color: #a78bfa;
+}
+
+/* VISUALIZAR — azul */
+.prontuario-page .procedure-actions .acao-visualizar {
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.prontuario-page .procedure-actions .acao-visualizar:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+
+/* ARQUIVAR — cinza */
+.prontuario-page .procedure-actions .acao-arquivar {
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.prontuario-page .procedure-actions .acao-arquivar:hover {
+  color: #475569;
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* Compatibilidade com o botão de visualização usado pelo JavaScript */
+.prontuario-page .procedure-actions .btn-visualizar {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Valores próximos: evita justificar o conteúdo até a borda */
+.prontuario-page .procedure-values {
+  min-width: 180px;
+  width: 180px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.prontuario-page .procedure-value-line {
+  display: grid;
+  grid-template-columns: 72px auto;
+  align-items: center;
+  justify-content: start;
+  column-gap: 8px;
+  margin-bottom: 3px;
+}
+
+.prontuario-page .procedure-value-line span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.prontuario-page .procedure-value-line strong {
+  color: #334155;
+  font-size: 12px;
+  text-align: left;
+}
+
+/* Ajuste financeiro do procedimento */
+.prontuario-page .form-ajuste-financeiro {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+}
+
+.prontuario-page .btn-ajuste-financeiro {
+  color: #c2410c;
+  border: 1px solid #fdba74;
+  background: #fff;
+}
+
+.prontuario-page .btn-ajuste-financeiro:hover {
+  color: #9a3412;
+  background: #fff7ed;
+  border-color: #fb923c;
+}
+
+.prontuario-page .ajuste-gerado {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ajuste-gerado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #86efac;
+  border-radius: 7px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   ODONTOGRAMA
+   ========================================================= */
+
+.prontuario-page .odontograma-card {
+  overflow: hidden;
+}
+
+.prontuario-page .odontograma-subtitle {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---------- Legenda ---------- */
+
+.prontuario-page .odontograma-legenda {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  max-width: 650px;
+}
+
+.prontuario-page .odontograma-legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.prontuario-page .odontograma-dot {
+  width: 9px;
+  height: 9px;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+/* Cores da legenda */
+
+.prontuario-page .dot-nao-avaliado {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.prontuario-page .dot-higido {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.prontuario-page .dot-carie {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.prontuario-page .dot-restaurado {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.prontuario-page .dot-fraturado {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.prontuario-page .dot-em-tratamento {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+}
+
+.prontuario-page .odontograma-dot.dot-implante {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.prontuario-page .odontograma-dot.dot-implante-tratamento {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.prontuario-page .odontograma-dot.dot-implante-realizado {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+/* =========================================================
+   SEÇÕES DO ODONTOGRAMA
+   ========================================================= */
+
+.prontuario-page .odontograma-section {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.prontuario-page .odontograma-section-deciduos {
+  padding-top: 18px;
+  border-top: 1px solid #edf1f5;
+}
+
+.prontuario-page .odontograma-section-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 13px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.prontuario-page .odontograma-section-title i {
+  color: #2563eb;
+  font-size: 13px;
+}
+
+.prontuario-page .odontograma-section-title strong {
+  color: #172554;
+  font-size: 13px;
+}
+
+/* =========================================================
+   ARCADA
+   ========================================================= */
+
+.prontuario-page .odontograma-arc {
+  width: 100%;
+}
+
+.prontuario-page .odontograma-arc-label {
+  margin: 8px 0 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.prontuario-page .odontograma-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 7px;
+}
+
+/* =========================================================
+   DENTE
+   ========================================================= */
+
+.prontuario-page .odontograma-dente {
+  position: relative;
+
+  width: 48px;
+  height: 58px;
+  min-width: 48px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 2px;
+
+  padding: 5px;
+
+  border: 1px solid #d8e0ea;
+  border-radius: 9px;
+
+  background: #fff;
+
+  color: #64748b;
+
+  font: inherit;
+  cursor: pointer;
+
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.prontuario-page .odontograma-dente:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.1);
+}
+
+.prontuario-page .odontograma-dente:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.prontuario-page .dente-icone {
+  font-size: 25px;
+  line-height: 1;
+}
+
+.prontuario-page .dente-numero {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* =========================================================
+   ESTADO — NÃO AVALIADO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-nao_avaliado {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+.prontuario-page .odontograma-dente.estado-nao_avaliado:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #64748b;
+}
+
+/* =========================================================
+   ESTADO — HÍGIDO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-higido {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.prontuario-page .odontograma-dente.estado-higido:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+/* =========================================================
+   ESTADO — CÁRIE
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-carie {
+  background: #fee2e2;
+  border: 2px solid #ef4444;
+  color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
+}
+
+.prontuario-page .odontograma-dente.estado-carie:hover {
+  background: #fecaca;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+/* =========================================================
+   ESTADO — RESTAURADO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-restaurado {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+.prontuario-page .odontograma-dente.estado-restaurado:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+/* =========================================================
+   ESTADO — FRATURADO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-fraturado {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+
+.prontuario-page .odontograma-dente.estado-fraturado:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+/* =========================================================
+   ESTADO — EM TRATAMENTO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-em_tratamento {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #7c3aed;
+}
+
+.prontuario-page .odontograma-dente.estado-em_tratamento:hover {
+  background: #ede9fe;
+  border-color: #a78bfa;
+}
+
+/* =========================================================
+   ESTADO — AUSENTE
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-ausente {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #64748b;
+  opacity: 0.75;
+}
+
+.prontuario-page .odontograma-dente.estado-ausente:hover {
+  background: #e2e8f0;
+  border-color: #64748b;
+  color: #475569;
+}
+
+/* =========================================================
+   ESTADO — EXTRAÍDO
+   ========================================================= */
+
+.prontuario-page .odontograma-dente.estado-extraido {
+  background: #e2e8f0;
+  border-color: #64748b;
+  color: #475569;
+}
+
+.prontuario-page .odontograma-dente.estado-extraido:hover {
+  background: #cbd5e1;
+  border-color: #475569;
+  color: #334155;
+}
+
+/* =========================================================
+   INDICADOR — IMPLANTE
+   ========================================================= */
+
+.prontuario-page .odontograma-dente {
+  position: relative;
+}
+
+.prontuario-page .indicador-implante {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.prontuario-page .indicador-implante-nao_se_aplica {
+  display: none;
+}
+
+.prontuario-page .indicador-implante-planejado {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #b45309;
+}
+
+.prontuario-page .indicador-implante-em_tratamento {
+  background: #ede9fe;
+  border: 1px solid #8b5cf6;
+  color: #6d28d9;
+}
+
+.prontuario-page .indicador-implante-realizado {
+  background: #dcfce7;
+  border: 1px solid #22c55e;
+  color: #15803d;
+}
+
+/* =========================================================
+   RESUMO DO ODONTOGRAMA
+   ========================================================= */
+
+.prontuario-page .odontograma-resumo {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 10px;
+
+  margin-top: 24px;
+  padding-top: 18px;
+
+  border-top: 1px solid #edf1f5;
+}
+
+.prontuario-page .odontograma-resumo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 11px 12px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+
+  background: #f8fafc;
+}
+
+.prontuario-page .odontograma-resumo-item span {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.prontuario-page .odontograma-resumo-item strong {
+  color: #172554;
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* =========================================================
+   SEPARAÇÃO VISUAL ENTRE ARCADA SUPERIOR E INFERIOR
+   ========================================================= */
+
+.prontuario-page .odontograma-row-superior {
+  margin-bottom: 15px;
+}
+
+.prontuario-page .odontograma-row-inferior {
+  margin-top: 5px;
+}
+
+/* =========================================================
+   RESPONSIVIDADE DO ODONTOGRAMA
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .prontuario-page .odontograma-legenda {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .prontuario-page .odontograma-row {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 4px 2px 10px;
+
+    scrollbar-width: thin;
+  }
+
+  .prontuario-page .odontograma-dente {
+    flex: 0 0 48px;
+  }
+
+  .prontuario-page .odontograma-resumo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .prontuario-page .odontograma-legenda {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .prontuario-page .odontograma-legenda span {
+    font-size: 10px;
+  }
+
+  .prontuario-page .odontograma-dente {
+    width: 44px;
+    height: 54px;
+    min-width: 44px;
+  }
+
+  .prontuario-page .dente-icone {
+    font-size: 22px;
+  }
+
+  .prontuario-page .dente-numero {
+    font-size: 9px;
+  }
+
+  .prontuario-page .odontograma-resumo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   IMPRESSÃO
+   ========================================================= */
+
+@media print {
+  .prontuario-page .odontograma-legenda {
+    justify-content: flex-start;
+  }
+
+  .prontuario-page .odontograma-dente {
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .prontuario-page .odontograma-row {
+    overflow: visible;
+  }
+
+  .prontuario-page .odontograma-resumo {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   MODAL DO ODONTOGRAMA
+========================================================= */
+
+#toothModal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: none;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+}
+
+#toothModal.show {
+  display: flex;
+}
+
+#toothModal .modal-content {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+#toothModal .modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+#toothModal .modal-header h2 {
+  margin: 0;
+
+  font-size: 22px;
+  font-weight: 700;
+
+  color: #0f172a;
+}
+
+#toothModal .modal-close {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #64748b;
+
+  font-size: 22px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+#toothModal .modal-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+#toothModal .modal-body {
+  padding: 22px;
+
+  overflow-y: auto;
+
+  color: #334155;
+}
+
+#toothModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+
+  padding: 16px 22px;
+
+  border-top: 1px solid #e2e8f0;
+
+  background: #f8fafc;
+}
+
+#toothModal .modal-button {
+  padding: 9px 16px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+#toothModal .modal-button:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* =========================================================
+   INFORMAÇÕES DO DENTE
+========================================================= */
+
+#toothModal .modal-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 12px 14px;
+
+  margin-bottom: 8px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+
+  background: #f8fafc;
+}
+
+#toothModal .modal-info strong {
+  color: #475569;
+  font-size: 13px;
+}
+
+#toothModal .modal-info span {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* =========================================================
+   SEÇÃO DO HISTÓRICO
+========================================================= */
+
+#toothModal .modal-section {
+  margin-top: 22px;
+}
+
+#toothModal .modal-section > strong {
+  display: block;
+
+  margin-bottom: 10px;
+
+  font-size: 15px;
+  color: #0f172a;
+}
+
+#toothModal .modal-empty {
+  margin: 0;
+
+  padding: 14px;
+
+  border: 1px dashed #cbd5e1;
+  border-radius: 9px;
+
+  background: #f8fafc;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+/* Indicador da última alteração ativa do dente */
+.odontograma-dente {
+  position: relative;
+}
+
+.odontograma-dente .indicador-ultima-alteracao {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Cores da última alteração */
+.odontograma-dente .indicador-ultima-alteracao.estado-carie {
+  background-color: #ef4444;
+}
+
+.odontograma-dente .indicador-ultima-alteracao.estado-restaurado {
+  background-color: #3b82f6;
+}
+
+.odontograma-dente .indicador-ultima-alteracao.estado-fraturado {
+  background-color: #facc15;
+}
+
+.odontograma-dente .indicador-ultima-alteracao.estado-em_tratamento {
+  background-color: #8b5cf6;
+}
+
+/* =========================================================
+   HISTÓRICO
+========================================================= */
+
+.odontograma-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.odontograma-historico-item {
+  padding: 14px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #f8fafc;
+}
+
+.odontograma-historico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 8px;
+}
+
+.odontograma-historico-header strong {
+  color: #0f172a;
+}
+
+.odontograma-historico-header span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.odontograma-historico-superficie {
+  font-size: 13px;
+  color: #475569;
+}
+
+.odontograma-historico-observacao {
+  margin-top: 10px;
+  padding-top: 10px;
+
+  border-top: 1px solid #e2e8f0;
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  color: #334155;
+}
+
+.odontograma-historico-vinculo {
+  margin-top: 8px;
+
+  font-size: 12px;
+
+  color: #2563eb;
+}
+
+/* =========================================================
+   HISTÓRICO DO ODONTOGRAMA
+========================================================= */
+
+.modal-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.odontograma-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.odontograma-historico-item {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.odontograma-historico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.odontograma-historico-header strong {
+  color: #0f172a;
+}
+
+.odontograma-historico-header span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.odontograma-historico-superficie {
+  font-size: 13px;
+  color: #475569;
+}
+
+.odontograma-historico-observacao {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.odontograma-historico-vinculo {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #2563eb;
+}
+
+/* =========================================================
+   AJUSTE FINAL — MODAIS DO ODONTOGRAMA
+   Compatível com #toothModal e com o modal legado
+   #modalOdontograma presente no PHP atual.
+   ========================================================= */
+
+/* ---------- Modal principal do dente ---------- */
+#toothModal.modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 24px !important;
+  margin: 0 !important;
+  background: rgba(15, 23, 42, 0.58) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease !important;
+}
+
+#toothModal.modal.show {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+#toothModal .modal-content {
+  position: relative !important;
+  width: min(560px, 100%) !important;
+  max-width: 560px !important;
+  max-height: calc(100vh - 48px) !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  border: 1px solid #dbe3ec !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.24) !important;
+  transform: translateY(8px) scale(0.98) !important;
+  transition: transform 0.18s ease !important;
+}
+
+#toothModal.modal.show .modal-content {
+  transform: translateY(0) scale(1) !important;
+}
+
+#toothModal .modal-header {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 18px 20px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid #e5eaf0 !important;
+  background: #fff !important;
+}
+
+#toothModal .modal-header > div:first-child {
+  min-width: 0 !important;
+}
+
+#toothModal .modal-kicker {
+  display: block !important;
+  margin: 0 0 4px !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+#toothModal .modal-header h2 {
+  margin: 0 !important;
+  color: #172554 !important;
+  font-size: 21px !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+}
+
+#toothModal .modal-close {
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1px solid #dbe3ec !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #64748b !important;
+  font: inherit !important;
+  font-size: 21px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+
+#toothModal .modal-close:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #334155 !important;
+}
+
+#toothModal .modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 20px !important;
+  margin: 0 !important;
+  background: #fff !important;
+  color: #334155 !important;
+}
+
+#toothModal .modal-info {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  min-height: 43px !important;
+  padding: 10px 13px !important;
+  margin: 0 0 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 9px !important;
+  background: #f8fafc !important;
+}
+
+#toothModal .modal-info strong {
+  color: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+#toothModal .modal-info span {
+  color: #0f172a !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+}
+
+#toothModal .modal-section {
+  margin: 18px 0 0 !important;
+}
+
+#toothModal .modal-section > strong {
+  display: block !important;
+  margin: 0 0 9px !important;
+  color: #172033 !important;
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  font-weight: 700 !important;
+}
+
+#toothModal .modal-section p {
+  margin: 7px 0 0 !important;
+  color: #475569 !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+#toothModal .modal-empty {
+  margin: 0 !important;
+  padding: 13px !important;
+  border: 1px dashed #cbd5e1 !important;
+  border-radius: 9px !important;
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+#toothModal .modal-footer {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  padding: 13px 20px !important;
+  margin: 0 !important;
+  border-top: 1px solid #e5eaf0 !important;
+  background: #f8fafc !important;
+}
+
+#toothModal .modal-button {
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  margin: 0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #475569 !important;
+  font: inherit !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+}
+
+#toothModal .modal-button:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #334155 !important;
+}
+
+#toothModal .odontograma-historico {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  margin-top: 12px !important;
+}
+
+#toothModal .odontograma-historico-item {
+  padding: 13px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+}
+
+#toothModal .odontograma-historico-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 7px !important;
+}
+
+#toothModal .odontograma-historico-header strong {
+  color: #172033 !important;
+  font-size: 12px !important;
+}
+
+#toothModal .odontograma-historico-header span {
+  color: #64748b !important;
+  font-size: 11px !important;
+}
+
+#toothModal .odontograma-historico-superficie {
+  color: #475569 !important;
+  font-size: 12px !important;
+}
+
+#toothModal .odontograma-historico-observacao {
+  margin-top: 9px !important;
+  padding-top: 9px !important;
+  border-top: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+#toothModal .odontograma-historico-vinculo {
+  margin-top: 7px !important;
+  color: #2563eb !important;
+  font-size: 11px !important;
+}
+
+/* ---------- Modal legado do odontograma ---------- */
+#modalOdontograma.odontograma-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99998 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+}
+
+#modalOdontograma.odontograma-modal[aria-hidden="false"],
+#modalOdontograma.odontograma-modal.show {
+  display: flex !important;
+}
+
+#modalOdontograma .odontograma-modal-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(15, 23, 42, 0.58) !important;
+}
+
+#modalOdontograma .odontograma-modal-content {
+  position: relative !important;
+  z-index: 1 !important;
+  width: min(620px, 100%) !important;
+  max-height: calc(100vh - 48px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  border: 1px solid #dbe3ec !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.24) !important;
+}
+
+#modalOdontograma .odontograma-modal-header {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 18px 20px !important;
+  border-bottom: 1px solid #e5eaf0 !important;
+}
+
+#modalOdontograma .odontograma-modal-kicker {
+  display: block !important;
+  margin-bottom: 4px !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+}
+
+#modalOdontograma .odontograma-modal-header h3 {
+  margin: 0 !important;
+  color: #172554 !important;
+  font-size: 21px !important;
+}
+
+#modalOdontograma .odontograma-modal-fechar {
+  width: 34px !important;
+  height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: 1px solid #dbe3ec !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+}
+
+#modalOdontograma .odontograma-modal-fechar:hover {
+  background: #f8fafc !important;
+  color: #334155 !important;
+}
+
+#modalOdontograma .odontograma-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding: 20px !important;
+}
+
+#modalOdontograma .odontograma-modal-dente-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px !important;
+  margin-bottom: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+}
+
+#modalOdontograma .odontograma-modal-dente-icon {
+  width: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 38px !important;
+  border-radius: 9px !important;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+
+#modalOdontograma .odontograma-modal-dente-info span {
+  display: block !important;
+  margin-bottom: 2px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+}
+
+#modalOdontograma .odontograma-modal-dente-info strong {
+  color: #172033 !important;
+  font-size: 14px !important;
+}
+
+#modalOdontograma .odontograma-modal-campo {
+  margin-top: 16px !important;
+}
+
+#modalOdontograma .odontograma-modal-campo label {
+  display: block !important;
+  margin-bottom: 7px !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+#modalOdontograma .odontograma-modal-campo select,
+#modalOdontograma .odontograma-modal-campo textarea {
+  width: 100% !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #334155 !important;
+  font: inherit !important;
+  font-size: 12px !important;
+}
+
+#modalOdontograma .odontograma-modal-campo select {
+  min-height: 38px !important;
+  padding: 0 10px !important;
+}
+
+#modalOdontograma .odontograma-modal-campo textarea {
+  min-height: 90px !important;
+  padding: 10px !important;
+  resize: vertical !important;
+}
+
+#modalOdontograma .odontograma-modal-campo select:focus,
+#modalOdontograma .odontograma-modal-campo textarea:focus {
+  outline: none !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+#modalOdontograma .odontograma-modal-label-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+#modalOdontograma .odontograma-modal-label-row > span {
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+}
+
+#modalOdontograma .odontograma-superficies {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 7px !important;
+}
+
+#modalOdontograma .odontograma-superficie {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #475569 !important;
+  font: inherit !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  transition: 0.15s ease !important;
+}
+
+#modalOdontograma .odontograma-superficie:hover,
+#modalOdontograma .odontograma-superficie.active,
+#modalOdontograma .odontograma-superficie.selecionada {
+  border-color: #60a5fa !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+#modalOdontograma .odontograma-superficie.is-selected {
+  border-color: #2564eb7e !important;
+  background: #2564eb7c !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18) !important;
+  font-weight: 700 !important;
+}
+
+#modalOdontograma .odontograma-modal-historico {
+  margin-top: 20px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #e5eaf0 !important;
+}
+
+#modalOdontograma .odontograma-modal-historico-header > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+#modalOdontograma .odontograma-modal-historico-header i {
+  color: #2563eb !important;
+}
+
+#modalOdontograma .odontograma-modal-historico-vazio {
+  margin-top: 9px !important;
+  padding: 12px !important;
+  border: 1px dashed #cbd5e1 !important;
+  border-radius: 9px !important;
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+
+#modalOdontograma .odontograma-modal-footer {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  padding: 13px 20px !important;
+  gap: 10px !important;
+  border-top: 1px solid #e5eaf0 !important;
+  background: #f8fafc !important;
+}
+
+#modalOdontograma .odontograma-btn-secundario {
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #475569 !important;
+  font: inherit !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+}
+
+#modalOdontograma .odontograma-btn-secundario:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+/* =========================================================
+   VISUALIZAÇÃO DO DENTE NO MODAL
+   ========================================================= */
+
+.odontograma-dente-visual {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0 20px;
+  padding: 10px;
+}
+
+.odontograma-dente-visual img {
+  display: block;
+  width: 180px;
+  max-width: 100%;
+  height: auto;
+}
+
+.prontuario-page .indicador-extracao {
+  display: none;
+  pointer-events: none;
+}
+
+.prontuario-page .indicador-extracao line {
+  stroke: #475569;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+
+.prontuario-page .odontograma-dente-svg.estado-extraido .indicador-extracao {
+  display: inline;
+}
+
+/* =========================================================
+   SUPERFÍCIES DO DENTE
+   ========================================================= */
+
+.odontograma-superficie {
+  position: relative;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+/* Hover */
+.odontograma-superficie:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #f5f9ff;
+}
+
+/* Superfície selecionada */
+.odontograma-superficie.is-selected {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18) !important;
+}
+
+/* Clique */
+.odontograma-superficie:active {
+  transform: translateY(1px);
+}
+
+.prontuario-page .odontograma-dente-svg.estado-ausente {
+  opacity: 1;
+}
+
+.prontuario-page .odontograma-dente-svg.estado-extraido {
+  opacity: 1;
+}
+
+#modalOdontograma .odontograma-superficie.superficie-desabilitada {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #94a3b8 !important;
+}
+
+#modalOdontograma .odontograma-superficie.superficie-desabilitada:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #94a3b8 !important;
+}
+
+#modalOdontograma .dente-superficie.superficie-desabilitada {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.45 !important;
+}
+
+/* =========================================================
+   DENTE INTERATIVO
+   ========================================================= */
+
+.odontograma-dente-svg {
+  width: 190px;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Contorno geral */
+
+.odontograma-dente-svg .dente-contorno {
+  fill: #f8fafc;
+  stroke: #94a3b8;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+/* Regiões */
+
+.odontograma-dente-svg .dente-superficie {
+  fill: #eef3f8;
+  stroke: #cbd5e1;
+  stroke-width: 2;
+  cursor: pointer;
+  transition:
+    fill 0.15s ease,
+    stroke 0.15s ease,
+    transform 0.15s ease;
+}
+
+/* Passar o mouse */
+
+.odontograma-dente-svg .dente-superficie:hover {
+  fill: #dbeafe;
+  stroke: #2563eb;
+}
+
+#modalOdontograma .dente-superficie.estado-higido {
+  fill: #dcfce7 !important;
+  stroke: #22c55e !important;
+}
+
+#modalOdontograma .dente-superficie.estado-carie {
+  fill: #f87171 !important;
+  stroke: #dc2626 !important;
+}
+
+#modalOdontograma .dente-superficie.estado-restaurado {
+  fill: #60a5fa !important;
+  stroke: #2563eb !important;
+}
+
+#modalOdontograma .dente-superficie.estado-fraturado {
+  fill: #facc15 !important;
+  stroke: #d97706 !important;
+}
+
+#modalOdontograma .dente-superficie.estado-em_tratamento {
+  fill: #a78bfa !important;
+  stroke: #7c3aed !important;
+}
+
+/* Região selecionada */
+
+.odontograma-dente-svg .dente-superficie.is-selected {
+  fill: #93c5fd;
+  stroke: #2563eb;
+  stroke-width: 3;
+}
+
+#modalOdontograma .dente-superficie {
+  cursor: pointer !important;
+  outline: none !important;
+}
+
+#modalOdontograma .dente-superficie.is-selected {
+  fill: #2563eb !important;
+  stroke: #1d4ed8 !important;
+  opacity: 0.95 !important;
+  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.25)) !important;
+}
+
+/* =========================================================
+   ESTADO GERAL DO DENTE NO MODAL
+   ========================================================= */
+
+#modalOdontograma .odontograma-dente-svg.estado-nao_avaliado .dente-superficie {
+  fill: #eef3f8 !important;
+  stroke: #cbd5e1 !important;
+}
+
+#modalOdontograma .odontograma-dente-svg.estado-higido .dente-superficie {
+  fill: #dcfce7 !important;
+  stroke: #22c55e !important;
+}
+
+#modalOdontograma .odontograma-dente-svg.estado-carie .dente-superficie {
+  fill: #fee2e2 !important;
+  stroke: #ef4444 !important;
+}
+
+#modalOdontograma .odontograma-dente-svg.estado-restaurado .dente-superficie {
+  fill: #dbeafe !important;
+  stroke: #3b82f6 !important;
+}
+
+#modalOdontograma .odontograma-dente-svg.estado-fraturado .dente-superficie {
+  fill: #fef3c7 !important;
+  stroke: #f59e0b !important;
+}
+
+#modalOdontograma
+  .odontograma-dente-svg.estado-em_tratamento
+  .dente-superficie {
+  fill: #ede9fe !important;
+  stroke: #8b5cf6 !important;
+}
+
+/* Estado geral: dente ausente */
+#modalOdontograma .odontograma-dente-svg.estado-ausente .dente-superficie {
+  fill: #e5e7eb !important;
+  stroke: #9ca3af !important;
+}
+
+/* Estado geral: dente extraído */
+#modalOdontograma .odontograma-dente-svg.estado-extraido .dente-superficie {
+  fill: #e5e7eb !important;
+  stroke: #9ca3af !important;
+}
+
+/* =========================================================
+   CONDIÇÃO ATUAL DAS SUPERFÍCIES DO DENTE
+   ========================================================= */
+
+#modalOdontograma .odontograma-dente-svg .dente-superficie.estado-carie {
+  fill: #f87171 !important;
+  stroke: #dc2626 !important;
+}
+
+#modalOdontograma .odontograma-dente-svg .dente-superficie.estado-restaurado {
+  fill: #60a5fa !important;
+  stroke: #2563eb !important;
+}
+
+#modalOdontograma .odontograma-dente-svg .dente-superficie.estado-fraturado {
+  fill: #facc15 !important;
+  stroke: #d97706 !important;
+}
+
+#modalOdontograma
+  .odontograma-dente-svg
+  .dente-superficie.estado-em_tratamento {
+  fill: #a78bfa !important;
+  stroke: #7c3aed !important;
+}
+
+/* =========================================================
+   LEGENDA DE CORES DO ODONTOGRAMA
+   ========================================================= */
+.prontuario-page .odontograma-modal-legendas {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.prontuario-page .odontograma-modal-legenda {
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.prontuario-page .odontograma-modal-legenda-titulo {
+  margin-bottom: 7px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.prontuario-page .odontograma-modal-legenda-itens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.prontuario-page .odontograma-modal-legenda-itens span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.prontuario-page .odontograma-modal-legenda .odontograma-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-nao-avaliado {
+  background: #94a3b8;
+  border-color: #94a3b8;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-higido {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-carie {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-restaurado {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-fraturado {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-em-tratamento {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-ausente {
+  background: #64748b;
+  border-color: #64748b;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-extraido {
+  background: #475569;
+  border-color: #475569;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-implante {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-implante-tratamento {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.prontuario-page .odontograma-modal-legenda .dot-implante-realizado {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+/* =========================================================
+   BOTÃO SALVAR ODONTOGRAMA
+   ========================================================= */
+
+.odontograma-btn-salvar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 38px;
+  padding: 0 16px;
+
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+/* Hover */
+.odontograma-btn-salvar:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
+}
+
+/* Clique */
+.odontograma-btn-salvar:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Foco por teclado */
+.odontograma-btn-salvar:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+/* Botão desabilitado durante o salvamento */
+.odontograma-btn-salvar:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 600px) {
+  #toothModal.modal,
+  #modalOdontograma.odontograma-modal {
+    padding: 12px !important;
+  }
+
+  #toothModal .modal-content,
+  #modalOdontograma .odontograma-modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100vh - 24px) !important;
+    border-radius: 13px !important;
+  }
+
+  #toothModal .modal-header,
+  #toothModal .modal-body,
+  #modalOdontograma .odontograma-modal-header,
+  #modalOdontograma .odontograma-modal-body {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #toothModal .modal-footer,
+  #modalOdontograma .odontograma-modal-footer {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  #toothModal .modal-info {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 3px !important;
+  }
+
+  #toothModal .modal-info span {
+    text-align: left !important;
+  }
+
+  #modalOdontograma .odontograma-superficies {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #modalOdontograma .odontograma-superficie {
+    width: 100% !important;
+  }
+}
+
+/* Nunca exibir os modais durante a impressão. */
+@media print {
+  #toothModal,
+  #modalOdontograma,
+  #procedureModal {
+    display: none !important;
+  }
+}
