@@ -9,7 +9,9 @@ $data_ini = $_GET['data_ini'] ?? '';
 $data_fim = $_GET['data_fim'] ?? '';
 
 // 🛡️ Monta WHERE dinâmico seguro
-$where = [];
+$where = [
+    "p.arquivado = 0"
+];
 $params = [];
 
 // Filtro de busca (nome, CPF ou telefone)
@@ -40,6 +42,7 @@ $sql = "
     LEFT JOIN (
         SELECT paciente_id, COUNT(*) as total
         FROM procedimentos
+        WHERE arquivado = 0
         GROUP BY paciente_id
     ) proc_count ON p.id = proc_count.paciente_id
 ";
@@ -50,12 +53,24 @@ if (isset($_GET['exportar']) && $_GET['exportar'] === '1') {
 
     // Reutiliza exatamente a mesma query dos filtros
     $sql_exp = "
-        SELECT p.id, p.paciente, p.cpf, p.telefone, p.nascimento, p.observacoes, 
-               COALESCE(proc_count.total, 0) as total_procedimentos
-        FROM prontuarios p
-        LEFT JOIN (SELECT paciente_id, COUNT(*) as total FROM procedimentos GROUP BY paciente_id) 
-        proc_count ON p.id = proc_count.paciente_id
-    ";
+    SELECT
+        p.id,
+        p.paciente,
+        p.cpf,
+        p.telefone,
+        p.nascimento,
+        p.observacoes,
+        COALESCE(proc_count.total, 0) as total_procedimentos
+    FROM prontuarios p
+    LEFT JOIN (
+        SELECT
+            paciente_id,
+            COUNT(*) as total
+        FROM procedimentos
+        WHERE arquivado = 0
+        GROUP BY paciente_id
+    ) proc_count ON p.id = proc_count.paciente_id
+";
 
     if (!empty($where)) {
         $sql_exp .= " WHERE " . implode(" AND ", $where);

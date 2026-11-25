@@ -76,8 +76,10 @@ $itens = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $totalEstimado = 0.00;
 
 foreach ($itens as $item) {
-    $totalEstimado +=
-        (float)$item['valor_estimado'];
+    // Itens cancelados permanecem no histórico, mas não compõem o total do plano.
+    if (($item['status'] ?? '') !== 'cancelado') {
+        $totalEstimado += (float)$item['valor_estimado'];
+    }
 }
 
 /*
@@ -655,7 +657,7 @@ $sucesso = $_GET['sucesso'] ?? '';
                     </span>
 
                     <small>
-                        Soma das etapas planejadas.
+                        Soma das etapas não canceladas.
                         Este valor é uma estimativa clínica.
                     </small>
 

@@ -25,10 +25,25 @@ try {
     $id = (int)$_POST['id'];
     if ($id <= 0) throw new Exception("ID inválido.");
 
-    $stmt = $pdo->prepare("DELETE FROM prontuarios WHERE id = ?");
+    $stmt = $pdo->prepare("
+    UPDATE prontuarios
+    SET
+        arquivado = 1,
+        arquivado_em = NOW()
+    WHERE id = ?
+      AND arquivado = 0
+");
+
     $stmt->execute([$id]);
 
-    echo json_encode(['success' => true]);
+    if ($stmt->rowCount() === 0) {
+        throw new Exception("Prontuário não encontrado ou já arquivado.");
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Prontuário arquivado com sucesso.'
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);

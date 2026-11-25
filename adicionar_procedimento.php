@@ -121,11 +121,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Na edição, devolvemos ao estoque os materiais do procedimento antigo.
         if ($procedimento_id) {
-            $stmt = $pdo->prepare('SELECT id, paciente_id, orcamento_id FROM procedimentos WHERE id = ? LIMIT 1 FOR UPDATE');
+            $stmt = $pdo->prepare('
+    SELECT
+        id,
+        paciente_id,
+        orcamento_id,
+        arquivado
+    FROM procedimentos
+    WHERE id = ?
+    LIMIT 1
+    FOR UPDATE
+');
+
             $stmt->execute([$procedimento_id]);
+
             $procedimento_antigo = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$procedimento_antigo || (int)$procedimento_antigo['paciente_id'] !== $prontuario_id) {
+
+            if (
+                !$procedimento_antigo ||
+                (int)$procedimento_antigo['paciente_id'] !== $prontuario_id
+            ) {
                 throw new Exception('Procedimento não encontrado para edição.');
+            }
+
+            if ((int)$procedimento_antigo['arquivado'] === 1) {
+                throw new Exception(
+                    'Este procedimento está arquivado e não pode ser editado.'
+                );
             }
 
             if (!$orcamento_id && !empty($procedimento_antigo['orcamento_id'])) {

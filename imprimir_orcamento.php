@@ -310,7 +310,7 @@ $status_icone = $status_icones[$status] ?? '•';
 
                 <div class="marca">
                     <img
-                        src="img/logo.png"
+                        src="img/icon.png"
                         alt="Evoluqi"
                         class="logo">
 

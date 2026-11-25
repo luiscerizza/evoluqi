@@ -30,6 +30,7 @@ $stmt = $pdo->prepare("
         p.data_procedimento,
         p.orcamento_id,
         p.plano_item_id,
+        p.arquivado,
         pr.paciente
     FROM procedimentos p
     INNER JOIN prontuarios pr
@@ -44,6 +45,10 @@ $procedimento = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$procedimento) {
     die('Procedimento não encontrado.');
+}
+
+if ((int)$procedimento['arquivado'] === 1) {
+    die('Este procedimento está arquivado e não pode gerar cobrança.');
 }
 
 /*

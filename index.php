@@ -146,7 +146,7 @@ function statusOrcamento(string $status): string
 
     <title>Dentech | Dashboard</title>
 
-    <link rel="icon" href="img/logo.png">
+    <link rel="icon" href="img/icon.png">
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/index.css">

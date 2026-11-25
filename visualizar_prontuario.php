@@ -241,31 +241,67 @@ $odontogramaDentes = $stmtOdontograma->fetchAll(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
-| HISTÓRICO DO ODONTOGRAMA
+| PLANOS DE TRATAMENTO DO PACIENTE
 |--------------------------------------------------------------------------
 */
 
+$stmtPlanosOdontograma = $pdo->prepare("
+    SELECT
+        pt.id AS plano_id,
+        pt.titulo AS plano_titulo,
+        pt.status AS plano_status,
+        pti.id AS item_id,
+        pti.descricao,
+        pti.dente_regiao,
+        pti.prioridade,
+        pti.valor_estimado,
+        pti.status AS item_status
+    FROM planos_tratamento pt
+    INNER JOIN planos_tratamento_itens pti
+        ON pti.plano_id = pt.id
+    WHERE pt.paciente_id = ?
+     AND pti.status IN ('em_andamento', 'concluido')
+    ORDER BY
+        CASE WHEN pti.status = 'em_andamento' THEN 0 ELSE 1 END,
+        pt.data_criacao DESC,
+        pti.ordem ASC,
+        pti.id ASC
+");
+
+$stmtPlanosOdontograma->execute([$id]);
+
+$itensPlanosOdontograma =
+    $stmtPlanosOdontograma->fetchAll(PDO::FETCH_ASSOC);
+
+
 /*
 |--------------------------------------------------------------------------
-| HISTÓRICO DAS SUPERFÍCIES
+| HISTÓRICO DAS SUPERFÍCIES ATIVAS
 |--------------------------------------------------------------------------
 */
 
 $stmtOdontogramaRegistros = $pdo->prepare("
     SELECT
         r.id,
+        d.numero_dente,
         r.odontograma_dente_id,
         r.superficie,
         r.condicao,
         r.observacao,
         r.procedimento_id,
         r.plano_tratamento_item_id,
+        r.estado_historico_id,
+        pti.descricao AS plano_tratamento_descricao,
+        pti.status AS plano_tratamento_status,
         r.data_registro,
         r.arquivado
     FROM odontograma_registros r
+    LEFT JOIN planos_tratamento_itens pti
+        ON pti.id = r.plano_tratamento_item_id
     INNER JOIN odontograma_dentes d
         ON d.id = r.odontograma_dente_id
     WHERE d.prontuario_id = ?
+      AND r.arquivado = 0
     ORDER BY r.data_registro DESC, r.id DESC
 ");
 
@@ -276,26 +312,177 @@ $odontogramaRegistros = $stmtOdontogramaRegistros->fetchAll(PDO::FETCH_ASSOC);
 
 /*
 |--------------------------------------------------------------------------
-| ÚLTIMA ALTERAÇÃO ATIVA DE CADA DENTE
+| HISTÓRICO DAS SUPERFÍCIES ARQUIVADAS POR ESTADO
 |--------------------------------------------------------------------------
 */
-$ultimaAlteracaoPorDente = [];
 
-foreach ($odontogramaRegistros as $registro) {
-    // Ignora registros arquivados.
-    if ((int)$registro['arquivado'] !== 0) {
+$stmtSuperficiesArquivadas = $pdo->prepare("
+    SELECT
+        es.estado_historico_id,
+        r.id,
+        r.odontograma_dente_id,
+        r.superficie,
+        r.condicao,
+        r.observacao,
+        r.data_registro,
+        r.arquivado
+    FROM odontograma_estados_superficies es
+    INNER JOIN odontograma_registros r
+        ON r.id = es.registro_superficie_id
+    INNER JOIN odontograma_estados_historico h
+        ON h.id = es.estado_historico_id
+    INNER JOIN odontograma_dentes d
+        ON d.id = r.odontograma_dente_id
+    WHERE d.prontuario_id = ?
+    ORDER BY r.data_registro DESC, r.id DESC
+");
+
+$stmtSuperficiesArquivadas->execute([$id]);
+
+$odontogramaSuperficiesArquivadas = $stmtSuperficiesArquivadas->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| HISTÓRICO DAS SUPERFÍCIES ARQUIVADAS POR SUBSTITUIÇÃO
+|--------------------------------------------------------------------------
+*/
+
+
+$stmtSuperficiesSubstituidas = $pdo->prepare("
+    SELECT
+        r.id,
+        d.numero_dente,
+        r.odontograma_dente_id,
+        r.superficie,
+        r.condicao,
+        r.observacao,
+        r.procedimento_id,
+        r.plano_tratamento_item_id,
+        r.estado_historico_id,
+        pti.descricao AS plano_tratamento_descricao,
+        pti.status AS plano_tratamento_status,
+        r.data_registro,
+        r.arquivado,
+        r.motivo_arquivamento
+    FROM odontograma_registros r
+    INNER JOIN odontograma_dentes d
+        ON d.id = r.odontograma_dente_id
+    LEFT JOIN planos_tratamento_itens pti
+        ON pti.id = r.plano_tratamento_item_id
+    WHERE d.prontuario_id = ?
+      AND r.arquivado = 1
+      AND COALESCE(r.motivo_arquivamento, '') NOT IN (
+          'encerrado_por_estado',
+          'arquivado_manual'
+      )
+    ORDER BY r.data_registro DESC, r.id DESC
+");
+
+
+$stmtSuperficiesSubstituidas->execute([$id]);
+
+$odontogramaSuperficiesSubstituidas =
+    $stmtSuperficiesSubstituidas->fetchAll(PDO::FETCH_ASSOC);
+
+
+$stmtTratamentosDentes = $pdo->prepare("
+SELECT t.id, 
+d.numero_dente, 
+t.odontograma_dente_id, 
+t.plano_tratamento_item_id,
+ t.descricao AS plano_tratamento_descricao, 
+ pti.status AS plano_tratamento_status, 
+ t.superficie, 
+ t.observacao, 
+ t.data_registro, 
+ t.arquivado 
+ FROM odontograma_tratamentos_dentes t 
+ INNER JOIN odontograma_dentes 
+ d ON d.id = t.odontograma_dente_id 
+ LEFT JOIN planos_tratamento_itens 
+ pti ON pti.id = t.plano_tratamento_item_id 
+ WHERE d.prontuario_id = ?
+ AND t.arquivado = 0
+ ORDER BY t.data_registro 
+ DESC, t.id DESC");
+$stmtTratamentosDentes->execute([$id]);
+$odontogramaTratamentosDentes = $stmtTratamentosDentes->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+|--------------------------------------------------------------------------
+| TRATAMENTOS EFETIVAMENTE REGISTRADOS POR DENTE
+|--------------------------------------------------------------------------
+|
+| Um item do plano só gera marcação visual quando existe uma associação
+| ativa no odontograma.
+|
+*/
+
+$tratamentosPlanoPorNumeroDente = [];
+
+$registrosComTratamento = array_merge(
+    $odontogramaRegistros,
+    $odontogramaTratamentosDentes
+);
+
+foreach ($registrosComTratamento as $registro) {
+
+    $itemPlanoId = (int)($registro['plano_tratamento_item_id'] ?? 0);
+
+    // Registro sem vínculo com item do plano não gera marcador de tratamento.
+    if ($itemPlanoId <= 0) {
         continue;
     }
 
-    $denteId = (int)$registro['odontograma_dente_id'];
+    $numeroDente = (string)($registro['numero_dente'] ?? '');
 
-    // A consulta já está ordenada do registro mais recente para o mais antigo.
-    // Portanto, o primeiro registro ativo de cada dente é o mais recente.
-    if (!isset($ultimaAlteracaoPorDente[$denteId])) {
-        $ultimaAlteracaoPorDente[$denteId] = $registro;
+    if ($numeroDente === '') {
+        continue;
     }
+
+    $status = $registro['plano_tratamento_status'] ?? '';
+
+    // Somente os status permitidos para tratamentos associados.
+    if (!in_array($status, ['em_andamento', 'concluido'], true)) {
+        continue;
+    }
+
+    $tratamentosPlanoPorNumeroDente[$numeroDente][] = [
+        'item_id' => $itemPlanoId,
+        'item_status' => $status,
+        'descricao' => $registro['plano_tratamento_descricao'] ?? ''
+    ];
 }
 
+$stmtTratamentosGerais = $pdo->prepare("
+    SELECT
+        tg.id,
+        tg.prontuario_id,
+        tg.plano_tratamento_item_id,
+        tg.descricao,
+        tg.regiao,
+        tg.observacao,
+        tg.data_registro,
+        tg.arquivado,
+        pti.status AS plano_tratamento_status
+    FROM odontograma_tratamentos_gerais tg
+    LEFT JOIN planos_tratamento_itens pti
+        ON pti.id = tg.plano_tratamento_item_id
+    WHERE tg.prontuario_id = ?
+    ORDER BY tg.data_registro DESC, tg.id DESC
+");
+
+$stmtTratamentosGerais->execute([$id]);
+
+$odontogramaTratamentosGerais = $stmtTratamentosGerais->fetchAll(PDO::FETCH_ASSOC);
+
+// Itens de arcada completa já registrados e ativos não podem ser oferecidos novamente.
+$itensArcadaCompletaAtivos = [];
+foreach ($odontogramaTratamentosGerais as $tratamentoGeral) {
+    if ((int)$tratamentoGeral['arquivado'] !== 0) continue;
+    $itemIdAtivo = (int)($tratamentoGeral['plano_tratamento_item_id'] ?? 0);
+    if ($itemIdAtivo > 0) $itensArcadaCompletaAtivos[$itemIdAtivo] = true;
+}
 
 
 /*
@@ -304,18 +491,22 @@ foreach ($odontogramaRegistros as $registro) {
 |--------------------------------------------------------------------------
 */
 
+
 $stmtOdontogramaEstadosHistorico = $pdo->prepare("
     SELECT
         h.id,
+        d.numero_dente,
         h.odontograma_dente_id,
         h.estado,
         h.observacao,
         h.data_registro,
-        h.criado_em
+        h.criado_em,
+        h.arquivado
     FROM odontograma_estados_historico h
     INNER JOIN odontograma_dentes d
         ON d.id = h.odontograma_dente_id
     WHERE d.prontuario_id = ?
+    AND h.arquivado = 0
     ORDER BY h.data_registro DESC, h.id DESC
 ");
 
@@ -324,24 +515,72 @@ $stmtOdontogramaEstadosHistorico->execute([$id]);
 $odontogramaEstadosHistorico =
     $stmtOdontogramaEstadosHistorico->fetchAll(PDO::FETCH_ASSOC);
 
+
+/*
+|--------------------------------------------------------------------------
+| ÚLTIMA ALTERAÇÃO ATIVA DE CADA DENTE
+|--------------------------------------------------------------------------
+*/
+
+$ultimaAlteracaoPorDente = [];
+
+$alteracoesAtivas = [];
+
+foreach ($odontogramaRegistros as $registro) {
+    if (($registro['superficie'] ?? '') === 'geral') {
+        $alteracoesAtivas[] = $registro;
+    }
+}
+
+// Inclui os históricos de estado geral ativos.
+foreach ($odontogramaEstadosHistorico as $registroEstado) {
+    $registroEstado['condicao'] = $registroEstado['estado'];
+
+    $alteracoesAtivas[] = $registroEstado;
+}
+
+foreach ($alteracoesAtivas as $registro) {
+
+    // Ignora registros arquivados.
+    if ((int)$registro['arquivado'] !== 0) {
+        continue;
+    }
+
+    $denteId = (int)$registro['odontograma_dente_id'];
+
+    if (
+        !isset($ultimaAlteracaoPorDente[$denteId]) ||
+        strcmp(
+            $registro['data_registro'],
+            $ultimaAlteracaoPorDente[$denteId]['data_registro']
+        ) > 0
+    ) {
+        $ultimaAlteracaoPorDente[$denteId] = $registro;
+    }
+}
+
 /*
 |--------------------------------------------------------------------------
 | HISTÓRICO DOS IMPLANTES
 |--------------------------------------------------------------------------
 */
 
+
 $stmtOdontogramaImplantesHistorico = $pdo->prepare("
     SELECT
         h.id,
+        d.numero_dente,
         h.odontograma_dente_id,
         h.status,
         h.observacao,
         h.data_registro,
-        h.criado_em
+        h.criado_em,
+        h.arquivado
     FROM odontograma_implantes_historico h
     INNER JOIN odontograma_dentes d
         ON d.id = h.odontograma_dente_id
     WHERE d.prontuario_id = ?
+    AND h.arquivado = 0
     ORDER BY h.data_registro DESC, h.id DESC
 ");
 
@@ -349,6 +588,24 @@ $stmtOdontogramaImplantesHistorico->execute([$id]);
 
 $odontogramaImplantesHistorico =
     $stmtOdontogramaImplantesHistorico->fetchAll(PDO::FETCH_ASSOC);
+
+/*
+ * O indicador visual deve refletir somente o último status de implante
+ * que continua ativo. O campo odontograma_dentes.implante_status é mantido
+ * para a regra clínica/backend, mas não deve manter um indicador visual
+ * depois que todos os eventos correspondentes forem arquivados.
+ * A consulta já está ordenada do mais recente para o mais antigo.
+ */
+$implanteStatusAtivoPorDente = [];
+
+foreach ($odontogramaImplantesHistorico as $historicoImplante) {
+    $denteIdImplante = (int)$historicoImplante['odontograma_dente_id'];
+
+    if (!isset($implanteStatusAtivoPorDente[$denteIdImplante])) {
+        $implanteStatusAtivoPorDente[$denteIdImplante] =
+            (string)$historicoImplante['status'];
+    }
+}
 
 
 /*
@@ -379,6 +636,56 @@ foreach ($odontogramaRegistros as $registro) {
     $odontogramaHistorico[$denteId][] = $registro;
 }
 
+/*
+|--------------------------------------------------------------------------
+| HISTÓRICO DE SUPERFÍCIES ARQUIVADAS
+|--------------------------------------------------------------------------
+*/
+
+foreach ($odontogramaSuperficiesArquivadas as $registro) {
+
+    $denteId = (int)$registro['odontograma_dente_id'];
+
+    if (!isset($odontogramaHistorico[$denteId])) {
+        $odontogramaHistorico[$denteId] = [];
+    }
+
+    $registro['tipo'] = 'superficie';
+
+    $odontogramaHistorico[$denteId][] = $registro;
+}
+
+/*
+|--------------------------------------------------------------------------
+| HISTÓRICO DE SUPERFÍCIES ARQUIVADAS POR SUBSTITUIÇÃO
+|--------------------------------------------------------------------------
+*/
+foreach ($odontogramaSuperficiesSubstituidas as $registro) {
+    $denteId = (int)$registro['odontograma_dente_id'];
+
+    if (!isset($odontogramaHistorico[$denteId])) {
+        $odontogramaHistorico[$denteId] = [];
+    }
+
+    $registro['tipo'] = 'superficie';
+
+    $odontogramaHistorico[$denteId][] = $registro;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| HISTÓRICO DE TRATAMENTOS INDEPENDENTES POR DENTE
+|--------------------------------------------------------------------------
+*/
+foreach ($odontogramaTratamentosDentes as $registro) {
+    $denteId = (int)$registro['odontograma_dente_id'];
+    if (!isset($odontogramaHistorico[$denteId])) $odontogramaHistorico[$denteId] = [];
+    $registro['tipo'] = 'tratamento';
+    $registro['condicao'] = $registro['plano_tratamento_descricao'] ?? 'Tratamento';
+    $registro['procedimento_id'] = null;
+    $odontogramaHistorico[$denteId][] = $registro;
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -404,9 +711,51 @@ foreach ($odontogramaEstadosHistorico as $registro) {
 
     $registro['plano_tratamento_item_id'] = null;
 
-    $registro['arquivado'] = 1;
-
     $odontogramaHistorico[$denteId][] = $registro;
+}
+
+/*
+|--------------------------------------------------------------------------
+| ASSOCIAR SUPERFÍCIES AOS EVENTOS DE ESTADO GERAL
+|--------------------------------------------------------------------------
+*/
+
+foreach ($odontogramaSuperficiesArquivadas as $superficie) {
+
+    $denteId = (int)$superficie['odontograma_dente_id'];
+    $estadoId = (int)$superficie['estado_historico_id'];
+
+    if (
+        !isset($odontogramaHistorico[$denteId]) ||
+        $estadoId <= 0
+    ) {
+        continue;
+    }
+
+    foreach ($odontogramaHistorico[$denteId] as &$registroHistorico) {
+
+        if (
+            $registroHistorico['tipo'] !== 'estado' ||
+            (int)$registroHistorico['id'] !== $estadoId
+        ) {
+            continue;
+        }
+
+        if (!isset($registroHistorico['superficies_associadas'])) {
+            $registroHistorico['superficies_associadas'] = [];
+        }
+
+        $registroHistorico['superficies_associadas'][] = [
+            'superficie' => $superficie['superficie'],
+            'condicao' => $superficie['condicao'],
+            'observacao' => $superficie['observacao'],
+            'data_registro' => $superficie['data_registro'] ?? null
+        ];
+
+        break;
+    }
+
+    unset($registroHistorico);
 }
 
 /*
@@ -432,8 +781,6 @@ foreach ($odontogramaImplantesHistorico as $registro) {
     $registro['procedimento_id'] = null;
 
     $registro['plano_tratamento_item_id'] = null;
-
-    $registro['arquivado'] = 1;
 
     $odontogramaHistorico[$denteId][] = $registro;
 }
@@ -489,7 +836,8 @@ $odontogramaResumo = [
     'fraturado' => 0,
     'em_tratamento' => 0,
     'ausente' => 0,
-    'extraido' => 0
+    'extraido' => 0,
+    'implante' => 0
 ];
 
 foreach ($odontogramaDentes as $dente) {
@@ -545,11 +893,6 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
     <link
         rel="stylesheet"
         href="css/layout.css">
-
-    <link
-        rel="stylesheet"
-        href="css/visualizar_prontuario.css">
-
     <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -558,6 +901,10 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
         rel="icon"
         type="image/png"
         href="img/icon.PNG">
+
+
+    <link rel="stylesheet" href="css/visualizar_prontuario.css">
+    <link rel="stylesheet" href="css/odontograma-vinculos.css">
 
 </head>
 
@@ -1471,6 +1818,7 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             );
 
                             foreach ($superiores as $dente):
+                                $statusImplanteVisual = $implanteStatusAtivoPorDente[(int)$dente['id']] ?? 'nao_se_aplica';
                             ?>
 
                                 <button
@@ -1479,13 +1827,21 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     data-dente-id="<?= (int)$dente['id'] ?>"
                                     data-numero="<?= htmlspecialchars($dente['numero_dente']) ?>"
                                     data-estado="<?= htmlspecialchars($dente['estado_geral']) ?>"
-                                    data-implante-status="<?= htmlspecialchars($dente['implante_status']) ?>">
+                                    data-implante-status="<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                    data-tratamento-status="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] ?? '')) ?>"
+                                    data-tratamento-descricao="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
                                     <span class="dente-numero">
                                         <?= htmlspecialchars($dente['numero_dente']) ?>
                                     </span>
 
                                     <i class="fa-solid fa-tooth dente-icone"></i>
+                                    <?php if (($dente['estado_geral'] ?? '') === 'implante'): ?>
+                                        <span class="indicador-dente-implante" title="Este dente possui implante realizado" style="display:block;font-size:9px;font-weight:700;line-height:1.1;letter-spacing:.3px;">IMPLANTE</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($tratamentosPlanoPorNumeroDente[$dente['numero_dente']])): ?>
+                                        <span class="indicador-plano-tratamento status-<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status']) ?>" title="<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] . ' — ' . ($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] === 'concluido' ? 'Concluído' : 'Em andamento'), ENT_QUOTES, 'UTF-8') ?>"></span>
+                                    <?php endif; ?>
 
 
                                     <?php
@@ -1513,23 +1869,25 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     <?php endif; ?>
 
 
-                                    <span
-                                        class="indicador-implante indicador-implante-<?= htmlspecialchars($dente['implante_status']) ?>"
-                                        title="Implante: <?= htmlspecialchars($dente['implante_status']) ?>">
-                                        <i class="<?=
-                                                    $dente['implante_status'] === 'planejado'
-                                                        ? 'fa-solid fa-plus'
-                                                        : (
-                                                            $dente['implante_status'] === 'em_tratamento'
-                                                            ? 'fa-solid fa-gear'
+                                    <?php if ($statusImplanteVisual !== 'nao_se_aplica'): ?>
+                                        <span
+                                            class="indicador-implante indicador-implante-<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                            title="Implante: <?= htmlspecialchars($statusImplanteVisual) ?>">
+                                            <i class="<?=
+                                                        $statusImplanteVisual === 'planejado'
+                                                            ? 'fa-solid fa-plus'
                                                             : (
-                                                                $dente['implante_status'] === 'realizado'
-                                                                ? 'fa-solid fa-check'
-                                                                : ''
+                                                                $statusImplanteVisual === 'em_tratamento'
+                                                                ? 'fa-solid fa-gear'
+                                                                : (
+                                                                    $statusImplanteVisual === 'realizado'
+                                                                    ? 'fa-solid fa-check'
+                                                                    : ''
+                                                                )
                                                             )
-                                                        )
-                                                    ?>"></i>
-                                    </span>
+                                                        ?>"></i>
+                                        </span>
+                                    <?php endif; ?>
 
                                 </button>
 
@@ -1552,6 +1910,7 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             );
 
                             foreach (array_reverse($inferiores) as $dente):
+                                $statusImplanteVisual = $implanteStatusAtivoPorDente[(int)$dente['id']] ?? 'nao_se_aplica';
                             ?>
 
                                 <button
@@ -1560,13 +1919,21 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     data-dente-id="<?= (int)$dente['id'] ?>"
                                     data-numero="<?= htmlspecialchars($dente['numero_dente']) ?>"
                                     data-estado="<?= htmlspecialchars($dente['estado_geral']) ?>"
-                                    data-implante-status="<?= htmlspecialchars($dente['implante_status']) ?>">
+                                    data-implante-status="<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                    data-tratamento-status="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] ?? '')) ?>"
+                                    data-tratamento-descricao="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
                                     <span class="dente-numero">
                                         <?= htmlspecialchars($dente['numero_dente']) ?>
                                     </span>
 
                                     <i class="fa-solid fa-tooth dente-icone"></i>
+                                    <?php if (($dente['estado_geral'] ?? '') === 'implante'): ?>
+                                        <span class="indicador-dente-implante" title="Este dente possui implante realizado" style="display:block;font-size:9px;font-weight:700;line-height:1.1;letter-spacing:.3px;">IMPLANTE</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($tratamentosPlanoPorNumeroDente[$dente['numero_dente']])): ?>
+                                        <span class="indicador-plano-tratamento status-<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status']) ?>" title="<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] . ' — ' . ($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] === 'concluido' ? 'Concluído' : 'Em andamento'), ENT_QUOTES, 'UTF-8') ?>"></span>
+                                    <?php endif; ?>
 
                                     <?php
                                     $ultimaAlteracao = $ultimaAlteracaoPorDente[(int)$dente['id']] ?? null;
@@ -1592,11 +1959,13 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                         </span>
                                     <?php endif; ?>
 
-                                    <span
-                                        class="indicador-implante indicador-implante-<?= htmlspecialchars($dente['implante_status']) ?>"
-                                        title="Implante: <?= htmlspecialchars($dente['implante_status']) ?>">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </span>
+                                    <?php if ($statusImplanteVisual !== 'nao_se_aplica'): ?>
+                                        <span
+                                            class="indicador-implante indicador-implante-<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                            title="Implante: <?= htmlspecialchars($statusImplanteVisual) ?>">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </span>
+                                    <?php endif; ?>
 
                                 </button>
 
@@ -1638,6 +2007,7 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                             <?php
                             foreach ($dentesDeciduos as $dente):
+                                $statusImplanteVisual = $implanteStatusAtivoPorDente[(int)$dente['id']] ?? 'nao_se_aplica';
                             ?>
 
                                 <button
@@ -1646,13 +2016,21 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     data-dente-id="<?= (int)$dente['id'] ?>"
                                     data-numero="<?= htmlspecialchars($dente['numero_dente']) ?>"
                                     data-estado="<?= htmlspecialchars($dente['estado_geral']) ?>"
-                                    data-implante-status="<?= htmlspecialchars($dente['implante_status']) ?>">
+                                    data-implante-status="<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                    data-tratamento-status="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] ?? '')) ?>"
+                                    data-tratamento-descricao="<?= htmlspecialchars((string)($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
                                     <span class="dente-numero">
                                         <?= htmlspecialchars($dente['numero_dente']) ?>
                                     </span>
 
                                     <i class="fa-solid fa-tooth dente-icone"></i>
+                                    <?php if (($dente['estado_geral'] ?? '') === 'implante'): ?>
+                                        <span class="indicador-dente-implante" title="Este dente possui implante realizado" style="display:block;font-size:9px;font-weight:700;line-height:1.1;letter-spacing:.3px;">IMPLANTE</span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($tratamentosPlanoPorNumeroDente[$dente['numero_dente']])): ?>
+                                        <span class="indicador-plano-tratamento status-<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status']) ?>" title="<?= htmlspecialchars($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['descricao'] . ' — ' . ($tratamentosPlanoPorNumeroDente[$dente['numero_dente']][0]['item_status'] === 'concluido' ? 'Concluído' : 'Em andamento'), ENT_QUOTES, 'UTF-8') ?>"></span>
+                                    <?php endif; ?>
 
                                     <?php
                                     $ultimaAlteracao = $ultimaAlteracaoPorDente[(int)$dente['id']] ?? null;
@@ -1678,11 +2056,13 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                         </span>
                                     <?php endif; ?>
 
-                                    <span
-                                        class="indicador-implante indicador-implante-<?= htmlspecialchars($dente['implante_status']) ?>"
-                                        title="Implante: <?= htmlspecialchars($dente['implante_status']) ?>">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </span>
+                                    <?php if ($statusImplanteVisual !== 'nao_se_aplica'): ?>
+                                        <span
+                                            class="indicador-implante indicador-implante-<?= htmlspecialchars($statusImplanteVisual) ?>"
+                                            title="Implante: <?= htmlspecialchars($statusImplanteVisual) ?>">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </span>
+                                    <?php endif; ?>
 
                                 </button>
                             <?php endforeach; ?>
@@ -1763,6 +2143,13 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                         </strong>
                     </div>
 
+                    <div class="odontograma-resumo-item">
+                        <span>Implantes</span>
+                        <strong>
+                            <?= $odontogramaResumo['implante'] ?>
+                        </strong>
+                    </div>
+
                 </div>
 
             </section>
@@ -1824,20 +2211,23 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                         </div>
 
-                        <!-- Visualização do dente -->
-                        <div class="odontograma-dente-visual">
+                        <div class="odontograma-modal-layout">
+                            <div class="odontograma-modal-coluna-esquerda">
 
-                            <svg
-                                id="odontogramaDenteSvg"
-                                class="odontograma-dente-svg"
-                                viewBox="0 0 300 360"
-                                role="img"
-                                aria-label="Representação interativa do dente">
+                                <!-- Visualização do dente -->
+                                <div class="odontograma-dente-visual">
 
-                                <!-- Contorno do dente -->
-                                <path
-                                    class="dente-contorno"
-                                    d="M150 25
+                                    <svg
+                                        id="odontogramaDenteSvg"
+                                        class="odontograma-dente-svg"
+                                        viewBox="0 0 300 360"
+                                        role="img"
+                                        aria-label="Representação interativa do dente">
+
+                                        <!-- Contorno do dente -->
+                                        <path
+                                            class="dente-contorno"
+                                            d="M150 25
                C105 25 65 48 58 92
                C53 125 70 150 72 180
                C74 220 72 268 92 318
@@ -1849,30 +2239,30 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                C228 268 226 220 228 180
                C230 150 247 125 242 92
                C235 48 195 25 150 25Z">
-                                </path>
+                                        </path>
 
 
 
 
-                                <!-- VESTIBULAR -->
-                                <path
-                                    class="dente-superficie"
-                                    data-superficie-dente="vestibular"
-                                    d="M83 78
+                                        <!-- VESTIBULAR -->
+                                        <path
+                                            class="dente-superficie"
+                                            data-superficie-dente="vestibular"
+                                            d="M83 78
                C105 55 127 52 150 52
                C173 52 195 55 217 78
                L208 122
                C190 112 170 107 150 107
                C130 107 110 112 92 122
                Z">
-                                </path>
+                                        </path>
 
 
-                                <!-- MESIAL -->
-                                <path
-                                    class="dente-superficie"
-                                    data-superficie-dente="mesial"
-                                    d="M83 78
+                                        <!-- MESIAL -->
+                                        <path
+                                            class="dente-superficie"
+                                            data-superficie-dente="mesial"
+                                            d="M83 78
                C72 91 69 108 72 125
                C75 143 84 157 91 169
                L91 230
@@ -1881,14 +2271,14 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                L118 175
                C106 153 98 132 92 122
                Z">
-                                </path>
+                                        </path>
 
 
-                                <!-- OCLUSAL / INCISAL -->
-                                <path
-                                    class="dente-superficie"
-                                    data-superficie-dente="oclusal"
-                                    d="M92 122
+                                        <!-- OCLUSAL / INCISAL -->
+                                        <path
+                                            class="dente-superficie"
+                                            data-superficie-dente="oclusal"
+                                            d="M92 122
                C110 112 130 107 150 107
                C170 107 190 112 208 122
                C198 140 187 154 177 169
@@ -1898,14 +2288,14 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                L123 169
                C113 154 102 140 92 122
                Z">
-                                </path>
+                                        </path>
 
 
-                                <!-- DISTAL -->
-                                <path
-                                    class="dente-superficie"
-                                    data-superficie-dente="distal"
-                                    d="M217 78
+                                        <!-- DISTAL -->
+                                        <path
+                                            class="dente-superficie"
+                                            data-superficie-dente="distal"
+                                            d="M217 78
                C228 91 231 108 228 125
                C225 143 216 157 209 169
                L209 230
@@ -1914,14 +2304,14 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                L182 175
                C194 153 202 132 208 122
                Z">
-                                </path>
+                                        </path>
 
 
-                                <!-- LINGUAL / PALATINA -->
-                                <path
-                                    class="dente-superficie"
-                                    data-superficie-dente="lingual_palatina"
-                                    d="M96 279
+                                        <!-- LINGUAL / PALATINA -->
+                                        <path
+                                            class="dente-superficie"
+                                            data-superficie-dente="lingual_palatina"
+                                            d="M96 279
                C110 266 128 254 150 254
                C172 254 190 266 204 279
                L208 318
@@ -1931,276 +2321,462 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                L128 321
                C117 342 100 338 92 318
                Z">
-                                </path>
+                                        </path>
 
-                                <!-- Indicador visual de dente extraído -->
-                                <g
-                                    id="indicadorExtracao"
-                                    class="indicador-extracao"
-                                    aria-hidden="true">
-                                    <line x1="95" y1="100" x2="205" y2="260"></line>
-                                    <line x1="205" y1="100" x2="95" y2="260"></line>
+                                        <!-- Indicador visual de dente extraído -->
+                                        <g
+                                            id="indicadorExtracao"
+                                            class="indicador-extracao"
+                                            aria-hidden="true">
+                                            <line x1="95" y1="100" x2="205" y2="260"></line>
+                                            <line x1="205" y1="100" x2="95" y2="260"></line>
 
-                                </g>
+                                        </g>
 
-                            </svg>
+                                    </svg>
 
-                        </div>
+                                </div>
 
 
-                        <!-- Estado geral -->
-                        <div class="odontograma-modal-campo">
+                                <!-- Modo de registro -->
+                                <div class="odontograma-modal-campo">
+                                    <label for="modalModoRegistro">O que deseja registrar?</label>
+                                    <select id="modalModoRegistro" class="form-control">
+                                        <option value="estado">Somente estado clínico</option>
+                                        <option value="tratamento">Somente tratamento</option>
+                                        <option value="ambos">Estado clínico e tratamento</option>
+                                    </select>
+                                    <small>O modo “Somente tratamento” não altera a condição clínica do dente.</small>
+                                </div>
 
-                            <label for="modalEstadoDente">
-                                Estado geral
-                            </label>
+                                <!-- Estado geral -->
+                                <div class="odontograma-modal-campo" id="campoEstadoGeral">
 
-                            <select id="modalEstadoDente">
+                                    <label for="modalEstadoDente" id="labelEstadoGeral">
+                                        Estado geral
+                                    </label>
 
-                                <option value="nao_avaliado">
-                                    Não avaliado
-                                </option>
-
-                                <option value="higido">
-                                    Hígido
-                                </option>
-
-                                <option value="carie">
-                                    Cárie
-                                </option>
-
-                                <option value="restaurado">
-                                    Restaurado
-                                </option>
-
-                                <option value="fraturado">
-                                    Fraturado
-                                </option>
-
-                                <option value="em_tratamento">
-                                    Em tratamento
-                                </option>
-
-                                <option value="ausente">
-                                    Ausente
-                                </option>
-
-                                <option value="extraido">
-                                    Extraído
-                                </option>
-
-                            </select>
-
-                            <div class="form-group" id="grupoImplante" style="display: none;">
-
-                                <label for="implanteStatus">
-                                    Planejamento de implante
-                                </label>
-
-                                <select
-                                    id="implanteStatus"
-                                    name="implante_status"
-                                    class="form-control">
-
-                                    <option value="nao_se_aplica">
-                                        Não se aplica
-                                    </option>
-
-                                    <option value="planejado">
-                                        Planejado
-                                    </option>
-
-                                    <option value="em_tratamento">
-                                        Em tratamento
-                                    </option>
-
-                                    <option value="realizado">
-                                        Realizado
-                                    </option>
-
-                                </select>
-
-                            </div>
-
-                            <div class="odontograma-modal-legendas">
-
-                                <div class="odontograma-modal-legenda">
-                                    <div class="odontograma-modal-legenda-titulo">
-                                        Legenda do estado
+                                    <div id="indicadorImplanteRealizado" style="display:none;margin:8px 0 12px;padding:12px;border:1px solid #86efac;border-radius:8px;background:#f0fdf4;color:#166534;">
+                                        <div style="display:flex;align-items:center;gap:8px;font-weight:700;">
+                                            <span aria-hidden="true">✓</span>
+                                            <span>IMPLANTE REALIZADO</span>
+                                        </div>
+                                        <small style="display:block;margin-top:4px;color:#166534;">
+                                            Implante concluído. As regiões do dente estão disponíveis para novos registros clínicos.
+                                        </small>
                                     </div>
 
-                                    <div class="odontograma-modal-legenda-itens">
+                                    <select id="modalEstadoDente">
 
-                                        <span>
-                                            <i class="odontograma-dot dot-nao-avaliado"></i>
+                                        <option value="nao_avaliado">
                                             Não avaliado
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-higido"></i>
+                                        <option value="higido">
                                             Hígido
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-carie"></i>
+                                        <option value="carie">
                                             Cárie
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-restaurado"></i>
+                                        <option value="restaurado">
                                             Restaurado
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-fraturado"></i>
+                                        <option value="fraturado">
                                             Fraturado
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-em-tratamento"></i>
+                                        <option value="em_tratamento">
                                             Em tratamento
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-ausente"></i>
+                                        <option value="ausente">
                                             Ausente
-                                        </span>
+                                        </option>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-extraido"></i>
+                                        <option value="extraido">
                                             Extraído
+                                        </option>
+
+                                    </select>
+
+                                    <div class="form-group" id="grupoImplante" style="display: none;">
+
+                                        <label for="implanteStatus">
+                                            Planejamento de implante
+                                        </label>
+
+                                        <select
+                                            id="implanteStatus"
+                                            name="implante_status"
+                                            class="form-control">
+
+                                            <option value="nao_se_aplica">
+                                                Não se aplica
+                                            </option>
+
+                                            <option value="planejado">
+                                                Planejado
+                                            </option>
+
+                                            <option value="em_tratamento">
+                                                Em tratamento
+                                            </option>
+
+                                            <option value="realizado">
+                                                Realizado
+                                            </option>
+
+                                        </select>
+
+                                    </div>
+
+                                    <div class="odontograma-modal-legendas">
+
+                                        <div class="odontograma-modal-legenda">
+                                            <div class="odontograma-modal-legenda-titulo">
+                                                Legenda do estado
+                                            </div>
+
+                                            <div class="odontograma-modal-legenda-itens">
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-nao-avaliado"></i>
+                                                    Não avaliado
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-higido"></i>
+                                                    Hígido
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-carie"></i>
+                                                    Cárie
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-restaurado"></i>
+                                                    Restaurado
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-fraturado"></i>
+                                                    Fraturado
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-em-tratamento"></i>
+                                                    Em tratamento
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-ausente"></i>
+                                                    Ausente
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-extraido"></i>
+                                                    Extraído
+                                                </span>
+
+                                            </div>
+                                        </div>
+
+                                        <div class="odontograma-modal-legenda">
+                                            <div class="odontograma-modal-legenda-titulo">
+                                                Legenda do implante
+                                            </div>
+
+                                            <div class="odontograma-modal-legenda-itens">
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-implante"></i>
+                                                    Planejado
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-implante-tratamento"></i>
+                                                    Em tratamento
+                                                </span>
+
+                                                <span>
+                                                    <i class="odontograma-dot dot-implante-realizado"></i>
+                                                    Realizado
+                                                </span>
+
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                <!-- Superfícies -->
+                                <div class="odontograma-modal-campo">
+
+                                    <div class="odontograma-modal-label-row">
+
+                                        <label>
+                                            Superfícies
+                                        </label>
+
+                                        <span>
+                                            Clique para selecionar
                                         </span>
 
                                     </div>
-                                </div>
 
-                                <div class="odontograma-modal-legenda">
-                                    <div class="odontograma-modal-legenda-titulo">
-                                        Legenda do implante
+
+                                    <div class="odontograma-superficies">
+
+                                        <button
+                                            type="button"
+                                            class="odontograma-superficie superficie-superior"
+                                            data-superficie="vestibular">
+                                            Vestibular
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="odontograma-superficie superficie-mesial"
+                                            data-superficie="mesial">
+                                            Mesial
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="odontograma-superficie superficie-centro"
+                                            data-superficie="oclusal">
+                                            Oclusal /
+                                            Incisal
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="odontograma-superficie superficie-distal"
+                                            data-superficie="distal">
+                                            Distal
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="odontograma-superficie superficie-inferior"
+                                            data-superficie="lingual_palatina">
+                                            Lingual /
+                                            Palatina
+                                        </button>
+
                                     </div>
 
-                                    <div class="odontograma-modal-legenda-itens">
+                                </div>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-implante"></i>
-                                            Planejado
-                                        </span>
 
-                                        <span>
-                                            <i class="odontograma-dot dot-implante-tratamento"></i>
-                                            Em tratamento
-                                        </span>
+                                <!-- Observações -->
+                                <div class="odontograma-modal-campo">
 
-                                        <span>
-                                            <i class="odontograma-dot dot-implante-realizado"></i>
-                                            Realizado
-                                        </span>
+                                    <label for="modalObservacaoDente">
+                                        Observações
+                                    </label>
 
+                                    <textarea
+                                        id="modalObservacaoDente"
+                                        rows="4"
+                                        placeholder="Digite uma observação sobre este dente..."></textarea>
+
+                                </div>
+
+                                <!-- Plano de tratamento -->
+                                <div class="odontograma-modal-campo odontograma-plano-vinculo">
+
+                                    <label for="modalPlanoTratamentoItem">
+                                        Plano de tratamento
+                                    </label>
+
+                                    <select
+                                        id="modalPlanoTratamentoItem"
+                                        class="form-control">
+
+                                        <option value="">
+                                            Não vincular a um item
+                                        </option>
+
+                                        <?php foreach ($itensPlanosOdontograma as $item): ?>
+
+                                            <option
+                                                value="<?= (int)$item['item_id'] ?>"
+                                                data-regiao="<?= htmlspecialchars(
+                                                                    (string)($item['dente_regiao'] ?? ''),
+                                                                    ENT_QUOTES,
+                                                                    'UTF-8'
+                                                                ) ?>">
+
+                                                <?= htmlspecialchars(
+                                                    $item['plano_titulo'] . ' — ' .
+                                                        $item['descricao'] .
+                                                        (
+                                                            !empty($item['dente_regiao'])
+                                                            ? ' (' . $item['dente_regiao'] . ')'
+                                                            : ''
+                                                        ) .
+                                                        ' — ' . $item['item_status'] .
+                                                        ' — R$ ' .
+                                                        number_format(
+                                                            (float)$item['valor_estimado'],
+                                                            2,
+                                                            ',',
+                                                            '.'
+                                                        ),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+
+                                            </option>
+
+                                        <?php endforeach; ?>
+                                    </select>
+
+                                    <div class="campo-tratamento-geral">
+                                        <label for="modalPlanoTratamentoGeral">
+                                            Tratamento de arcada completa
+                                        </label>
+
+                                        <select
+                                            id="modalPlanoTratamentoGeral"
+                                            class="form-control">
+
+                                            <option value="">
+                                                <?php
+                                                $haTratamentoGeralDisponivel = false;
+                                                $haTratamentoGeralRegistrado = false;
+                                                foreach ($itensPlanosOdontograma as $itemDisponivel) {
+                                                    $regiaoDisponivel = mb_strtolower(trim((string)($itemDisponivel['dente_regiao'] ?? '')), 'UTF-8');
+                                                    $ehGeralDisponivel = str_contains($regiaoDisponivel, 'arcada completa') || str_contains($regiaoDisponivel, 'boca toda') || str_contains($regiaoDisponivel, 'todos os dentes') || $regiaoDisponivel === 'geral';
+                                                    if (
+                                                        $ehGeralDisponivel &&
+                                                        in_array($itemDisponivel['item_status'], ['em_andamento', 'concluido'], true)
+                                                    ) {
+                                                        if (isset($itensArcadaCompletaAtivos[(int)$itemDisponivel['item_id']])) $haTratamentoGeralRegistrado = true;
+                                                        else $haTratamentoGeralDisponivel = true;
+                                                    }
+                                                }
+                                                ?>
+                                                <?= $haTratamentoGeralDisponivel ? 'Selecione um tratamento' : ($haTratamentoGeralRegistrado ? 'Tratamentos de arcada completa já registrados' : 'Nenhum tratamento de arcada completa disponível no plano') ?>
+                                            </option>
+
+                                            <?php foreach ($itensPlanosOdontograma as $item): ?>
+                                                <?php
+                                                $regiao = mb_strtolower(
+                                                    trim((string)($item['dente_regiao'] ?? '')),
+                                                    'UTF-8'
+                                                );
+
+                                                $ehArcadaCompleta =
+                                                    str_contains($regiao, 'arcada completa') ||
+                                                    str_contains($regiao, 'boca toda') ||
+                                                    str_contains($regiao, 'todos os dentes') ||
+                                                    $regiao === 'geral';
+                                                ?>
+
+                                                <?php if (
+                                                    $ehArcadaCompleta &&
+                                                    in_array($item['item_status'], ['em_andamento', 'concluido'], true) &&
+                                                    !isset($itensArcadaCompletaAtivos[(int)$item['item_id']])
+                                                ): ?>
+                                                    <option value="<?= (int)$item['item_id'] ?>">
+                                                        <?= htmlspecialchars(
+                                                            $item['plano_titulo'] . ' — ' .
+                                                                $item['descricao'] . ' — Arcada completa — R$ ' .
+                                                                number_format(
+                                                                    (float)$item['valor_estimado'],
+                                                                    2,
+                                                                    ',',
+                                                                    '.'
+                                                                ),
+                                                            ENT_QUOTES,
+                                                            'UTF-8'
+                                                        ) ?>
+                                                    </option>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </select>
+
+                                        <label for="observacaoTratamentoGeral">
+                                            Observação clínica (opcional)
+                                        </label>
+
+                                        <textarea
+                                            id="observacaoTratamentoGeral"
+                                            class="form-control"
+                                            rows="3"
+                                            placeholder="Descreva observações sobre o tratamento realizado"></textarea>
+
+                                        <button
+                                            type="button"
+                                            id="btnSalvarTratamentoGeral"
+                                            class="btn btn-primary">
+                                            <i class="fa-solid fa-floppy-disk"></i>
+                                            Registrar tratamento geral
+                                        </button>
+                                    </div>
+
+
+                                    <small id="modalPlanoTratamentoAjuda">
+                                        Selecione um tratamento compatível com o dente.
+                                    </small>
+
+                                </div>
+
+                            </div>
+
+                            <div class="odontograma-modal-coluna-direita">
+
+
+                                <!-- Histórico -->
+                                <div class="odontograma-modal-historico">
+
+                                    <div class="odontograma-modal-historico-header">
+
+                                        <div>
+                                            <i class="fa-solid fa-clock-rotate-left"></i>
+
+                                            <span>
+                                                Histórico do dente
+                                            </span>
+                                        </div>
+
+                                    </div>
+
+                                    <div
+                                        id="modalHistoricoDente"
+                                        class="odontograma-modal-historico-vazio">
+                                        Nenhum registro realizado.
+                                    </div>
+
+                                </div>
+
+                                <div class="odontograma-modal-historico">
+                                    <div class="odontograma-modal-historico-header">
+                                        <div>
+                                            <i class="fa-solid fa-teeth"></i>
+                                            <span>Tratamentos de arcada completa</span>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        id="modalHistoricoTratamentosGerais"
+                                        class="odontograma-modal-historico-vazio">
+                                        Nenhum tratamento de arcada completa registrado.
                                     </div>
                                 </div>
 
-                            </div>
 
+                            </div>
                         </div>
 
-
-                        <!-- Superfícies -->
-                        <div class="odontograma-modal-campo">
-
-                            <div class="odontograma-modal-label-row">
-
-                                <label>
-                                    Superfícies
-                                </label>
-
-                                <span>
-                                    Clique para selecionar
-                                </span>
-
-                            </div>
-
-
-                            <div class="odontograma-superficies">
-
-                                <button
-                                    type="button"
-                                    class="odontograma-superficie superficie-superior"
-                                    data-superficie="vestibular">
-                                    Vestibular
-                                </button>
-
-                                <button
-                                    type="button"
-                                    class="odontograma-superficie superficie-mesial"
-                                    data-superficie="mesial">
-                                    Mesial
-                                </button>
-
-                                <button
-                                    type="button"
-                                    class="odontograma-superficie superficie-centro"
-                                    data-superficie="oclusal">
-                                    Oclusal /
-                                    Incisal
-                                </button>
-
-                                <button
-                                    type="button"
-                                    class="odontograma-superficie superficie-distal"
-                                    data-superficie="distal">
-                                    Distal
-                                </button>
-
-                                <button
-                                    type="button"
-                                    class="odontograma-superficie superficie-inferior"
-                                    data-superficie="lingual_palatina">
-                                    Lingual /
-                                    Palatina
-                                </button>
-
-                            </div>
-
-                        </div>
-
-
-                        <!-- Observações -->
-                        <div class="odontograma-modal-campo">
-
-                            <label for="modalObservacaoDente">
-                                Observações
-                            </label>
-
-                            <textarea
-                                id="modalObservacaoDente"
-                                rows="4"
-                                placeholder="Digite uma observação sobre este dente..."></textarea>
-
-                        </div>
-
-
-                        <!-- Histórico -->
-                        <div class="odontograma-modal-historico">
-
-                            <div class="odontograma-modal-historico-header">
-
-                                <div>
-                                    <i class="fa-solid fa-clock-rotate-left"></i>
-
-                                    <span>
-                                        Histórico do dente
-                                    </span>
-                                </div>
-
-                            </div>
-
-                            <div
-                                id="modalHistoricoDente"
-                                class="odontograma-modal-historico-vazio">
-                                Nenhum registro realizado.
-                            </div>
-
-                        </div>
 
                     </div>
 
@@ -2227,6 +2803,91 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                 </div>
             </div>
+
+            <script>
+                /* Remodelação progressiva do modal: abas funcionais sem substituir os handlers existentes. */
+                (function() {
+                    const modal = document.getElementById('modalOdontograma');
+                    if (!modal || modal.dataset.tabsReady === '1') return;
+                    const body = modal.querySelector('.odontograma-modal-body');
+                    const layout = modal.querySelector('.odontograma-modal-layout');
+                    const left = modal.querySelector('.odontograma-modal-coluna-esquerda');
+                    const right = modal.querySelector('.odontograma-modal-coluna-direita');
+                    if (!body || !layout || !left || !right) return;
+                    modal.dataset.tabsReady = '1';
+
+                    const plan = left.querySelector('.odontograma-plano-vinculo');
+                    const nav = document.createElement('div');
+                    nav.className = 'odontograma-tabs';
+                    nav.setAttribute('role', 'tablist');
+                    nav.setAttribute('aria-label', 'Seções do odontograma');
+                    const stage = document.createElement('div');
+                    stage.className = 'odontograma-tab-stage';
+                    const clinical = document.createElement('section');
+                    clinical.className = 'odontograma-tab-panel is-active';
+                    clinical.dataset.tabPanel = 'clinica';
+                    clinical.id = 'odontogramaPanelClinica';
+                    clinical.setAttribute('role', 'tabpanel');
+                    const treatments = document.createElement('section');
+                    treatments.className = 'odontograma-tab-panel';
+                    treatments.dataset.tabPanel = 'tratamentos';
+                    treatments.id = 'odontogramaPanelTratamentos';
+                    treatments.setAttribute('role', 'tabpanel');
+                    const history = document.createElement('section');
+                    history.className = 'odontograma-tab-panel odontograma-tab-historico';
+                    history.dataset.tabPanel = 'historico';
+                    history.id = 'odontogramaPanelHistorico';
+                    history.setAttribute('role', 'tabpanel');
+
+                    const tabs = [{
+                            id: 'clinica',
+                            label: 'Avaliação clínica',
+                            icon: 'fa-tooth',
+                            panel: clinical
+                        },
+                        {
+                            id: 'tratamentos',
+                            label: 'Tratamentos',
+                            icon: 'fa-kit-medical',
+                            panel: treatments
+                        },
+                        {
+                            id: 'historico',
+                            label: 'Histórico',
+                            icon: 'fa-clock-rotate-left',
+                            panel: history
+                        }
+                    ];
+                    tabs.forEach((item, index) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'odontograma-tab' + (index === 0 ? ' is-active' : '');
+                        button.id = 'odontogramaTab' + item.id;
+                        button.setAttribute('role', 'tab');
+                        button.setAttribute('aria-controls', item.panel.id);
+                        button.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+                        button.innerHTML = '<i class="fa-solid ' + item.icon + '"></i><span>' + item.label + '</span>';
+                        button.addEventListener('click', () => {
+                            tabs.forEach(tab => {
+                                const b = nav.querySelector('#odontogramaTab' + tab.id);
+                                const active = tab.id === item.id;
+                                b.classList.toggle('is-active', active);
+                                b.setAttribute('aria-selected', active ? 'true' : 'false');
+                                tab.panel.classList.toggle('is-active', active);
+                            });
+                        });
+                        nav.appendChild(button);
+                    });
+
+                    // Move existing DOM nodes rather than recreate them, preserving IDs and event handlers.
+                    if (plan) plan.remove();
+                    clinical.appendChild(left);
+                    if (plan) treatments.appendChild(plan);
+                    history.appendChild(right);
+                    stage.append(clinical, treatments, history);
+                    layout.replaceWith(nav, stage);
+                })();
+            </script>
 
         </div>
 
@@ -2400,16 +3061,25 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                     |--------------------------------------------------------------------------
                     */
 
-                    const odontogramaHistorico =
-                        <?= json_encode(
-                            $odontogramaHistorico,
-                            JSON_UNESCAPED_UNICODE |
-                                JSON_UNESCAPED_SLASHES |
-                                JSON_HEX_TAG |
-                                JSON_HEX_AMP |
-                                JSON_HEX_APOS |
-                                JSON_HEX_QUOT
-                        ) ?>;
+                    const odontogramaHistorico = <?= json_encode(
+                                                        $odontogramaHistorico,
+                                                        JSON_UNESCAPED_UNICODE |
+                                                            JSON_UNESCAPED_SLASHES |
+                                                            JSON_HEX_TAG |
+                                                            JSON_HEX_AMP |
+                                                            JSON_HEX_APOS |
+                                                            JSON_HEX_QUOT
+                                                    ) ?>;
+
+                    const odontogramaTratamentosGerais = <?= json_encode(
+                                                                $odontogramaTratamentosGerais,
+                                                                JSON_UNESCAPED_UNICODE
+                                                                    | JSON_UNESCAPED_SLASHES
+                                                                    | JSON_HEX_TAG
+                                                                    | JSON_HEX_APOS
+                                                                    | JSON_HEX_AMP
+                                                                    | JSON_HEX_QUOT
+                                                            ) ?>;
 
                     window.odontogramaHistoricoTeste = odontogramaHistorico;
 
@@ -2562,6 +3232,8 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                     if (odontogramaModal) {
 
+                        const odontogramaDenteSvg = document.getElementById('odontogramaDenteSvg');
+
                         const overlay =
                             odontogramaModal.querySelector(
                                 '.odontograma-modal-overlay'
@@ -2591,6 +3263,67 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             document.getElementById(
                                 'modalEstadoDente'
                             );
+                        const modoRegistroSelect = document.getElementById('modalModoRegistro');
+                        const campoEstadoGeral = document.getElementById('campoEstadoGeral');
+                        const labelEstadoGeral = document.getElementById('labelEstadoGeral');
+                        const indicadorImplanteRealizado = document.getElementById('indicadorImplanteRealizado');
+                        let estadoPersistidoDente = null;
+
+                        function atualizarModoRegistro() {
+                            const somenteTratamento = modoRegistroSelect?.value === 'tratamento';
+                            const estadoSelecionado = estadoDente?.value || '';
+                            const estadoBloqueado = ['ausente', 'extraido'].includes(estadoSelecionado);
+                            const estadoOriginalBloqueado = ['ausente', 'extraido'].includes(estadoPersistidoDente);
+
+                            if (modoRegistroSelect) {
+                                const opcaoTratamento = modoRegistroSelect.querySelector('option[value="tratamento"]');
+                                const opcaoAmbos = modoRegistroSelect.querySelector('option[value="ambos"]');
+                                if (opcaoTratamento) opcaoTratamento.disabled = estadoBloqueado;
+                                if (opcaoAmbos) opcaoAmbos.disabled = estadoBloqueado;
+                                if (estadoBloqueado && modoRegistroSelect.value !== 'estado') {
+                                    modoRegistroSelect.value = 'estado';
+                                }
+                            }
+
+                            const modoSomenteEstado = modoRegistroSelect?.value === 'estado';
+                            if (campoEstadoGeral) campoEstadoGeral.style.opacity = somenteTratamento ? '0.55' : '1';
+
+                            if (estadoDente) {
+                                const denteComImplanteRealizado = estadoPersistidoDente === 'implante';
+                                estadoDente.disabled = somenteTratamento || estadoOriginalBloqueado;
+                                estadoDente.style.display = '';
+                                if (labelEstadoGeral) {
+                                    labelEstadoGeral.style.display = '';
+                                    labelEstadoGeral.textContent = denteComImplanteRealizado ?
+                                        'Condição da região' :
+                                        'Estado geral';
+                                }
+                                if (indicadorImplanteRealizado) {
+                                    indicadorImplanteRealizado.style.display = denteComImplanteRealizado ? '' : 'none';
+                                }
+                                // Em dentes com implante realizado, o select representa a
+                                // condição clínica da superfície selecionada. O estado geral
+                                // "implante" é enviado separadamente ao backend.
+                                if (denteComImplanteRealizado && !estadoDente.value) {
+                                    estadoDente.value = 'nao_avaliado';
+                                }
+                            }
+
+                            if (implanteStatus) {
+                                const podeEditarImplante = ['ausente', 'extraido'].includes(estadoSelecionado);
+                                implanteStatus.disabled = somenteTratamento || !podeEditarImplante;
+                            }
+
+                            if (grupoImplante) {
+                                grupoImplante.style.opacity = somenteTratamento ? '0.55' : '1';
+                            }
+
+                            if (planoTratamentoSelect) {
+                                planoTratamentoSelect.disabled = modoSomenteEstado;
+                                if (planoTratamentoSelect.disabled) planoTratamentoSelect.value = '';
+                            }
+                        }
+                        modoRegistroSelect?.addEventListener('change', atualizarModoRegistro);
 
                         const grupoImplante =
                             document.getElementById(
@@ -2605,6 +3338,16 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                         const observacao =
                             document.getElementById(
                                 'modalObservacaoDente'
+                            );
+
+                        const planoTratamentoSelect =
+                            document.getElementById(
+                                'modalPlanoTratamentoItem'
+                            );
+
+                        const planoTratamentoAjuda =
+                            document.getElementById(
+                                'modalPlanoTratamentoAjuda'
                             );
 
                         const historicoDente =
@@ -2633,6 +3376,7 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             if (!grupoImplante || !estadoDente) {
                                 return;
                             }
+
                             const podePlanejarImplante =
                                 estadoDente.value === 'ausente' ||
                                 estadoDente.value === 'extraido';
@@ -2640,11 +3384,9 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             grupoImplante.style.display =
                                 podePlanejarImplante ? '' : 'none';
 
-                            if (!podePlanejarImplante && implanteStatus) {
-                                implanteStatus.value = 'nao_se_aplica';
-                            }
+                            // Não redefinir o status ao ocultar o campo:
+                            // isso apagaria um status já salvo no dente.
 
-                            // Atualiza a aparência do dente no modal
                             odontogramaDenteSvg.classList.remove(
                                 'estado-nao_avaliado',
                                 'estado-higido',
@@ -2653,11 +3395,16 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                 'estado-fraturado',
                                 'estado-em_tratamento',
                                 'estado-ausente',
-                                'estado-extraido'
+                                'estado-extraido',
+                                'estado-implante'
                             );
 
+                            const estadoVisual = estadoPersistidoDente === 'implante' ?
+                                'implante' :
+                                estadoDente.value;
+
                             odontogramaDenteSvg.classList.add(
-                                'estado-' + estadoDente.value
+                                'estado-' + estadoVisual
                             );
                         }
 
@@ -2701,17 +3448,11 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                         }
 
                         if (estadoDente) {
-                            estadoDente.addEventListener(
-                                'change',
-                                atualizarCampoImplante
-                            );
-                        }
-
-                        if (estadoDente) {
-                            estadoDente.addEventListener(
-                                'change',
-                                atualizarSuperficiesPorEstado
-                            );
+                            estadoDente.addEventListener('change', function() {
+                                atualizarCampoImplante();
+                                atualizarModoRegistro();
+                                atualizarSuperficiesPorEstado();
+                            });
                         }
 
 
@@ -2746,7 +3487,9 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                             ausente: 'Ausente',
 
-                            extraido: 'Extraído'
+                            extraido: 'Extraído',
+
+                            implante: 'Implante'
 
                         };
 
@@ -2784,17 +3527,98 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                 'fraturado',
                                 'em_tratamento',
                                 'ausente',
-                                'extraido'
+                                'extraido',
+                                'implante'
                             ];
 
+                            const todosRegistros = odontogramaHistorico[denteId] || [];
+
+                            // No modo "Ambos", o registro geral guarda o vínculo do plano.
+                            // Transfere esse vínculo para o evento de estado clínico e oculta
+                            // o registro técnico duplicado, mantendo um único cartão no histórico.
+                            todosRegistros.forEach(function(registroEstado) {
+                                if (registroEstado.tipo !== 'estado') return;
+
+                                const registroComTratamento = todosRegistros.find(function(registro) {
+                                    return registro.tipo === 'superficie' &&
+                                        registro.superficie === 'geral' &&
+                                        Number(registro.estado_historico_id || 0) === Number(registroEstado.id) &&
+                                        Number(registro.plano_tratamento_item_id || 0) > 0;
+                                });
+
+                                if (registroComTratamento) {
+                                    registroEstado.plano_tratamento_item_id = registroComTratamento.plano_tratamento_item_id;
+                                    registroEstado.plano_tratamento_descricao = registroComTratamento.plano_tratamento_descricao;
+                                    registroEstado.plano_tratamento_status = registroComTratamento.plano_tratamento_status;
+                                    registroEstado.plano_tratamento_registro_id = registroComTratamento.id;
+                                    registroEstado.observacao = registroEstado.observacao || registroComTratamento.observacao;
+                                }
+                            });
+
+
                             const registros =
-                                (odontogramaHistorico[denteId] || [])
+                                todosRegistros
                                 .filter(function(registro) {
+
+                                    const estaArquivado =
+                                        Number(registro.arquivado) === 1;
+
+                                    // Superfícies encerradas por mudança de estado geral
+                                    // já são exibidas dentro do cartão do evento correspondente.
+                                    if (
+                                        estaArquivado &&
+                                        registro.motivo_arquivamento !== 'substituido' &&
+                                        registro.motivo_arquivamento !== null &&
+                                        registro.motivo_arquivamento !== undefined
+                                    ) {
+                                        return false;
+                                    }
+
+                                    // Registros ativos continuam aparecendo normalmente.
+                                    // Registros substituídos e legados com motivo indeterminado
+                                    // também permanecem no histórico.
+                                    if (
+                                        estaArquivado &&
+                                        !Object.prototype.hasOwnProperty.call(
+                                            registro,
+                                            'motivo_arquivamento'
+                                        )
+                                    ) {
+                                        return false;
+                                    }
+
 
                                     if (
                                         registro.tipo === 'superficie' &&
                                         registro.superficie === 'geral' &&
-                                        estadosGerais.includes(registro.condicao)
+                                        Number(registro.estado_historico_id || 0) > 0 &&
+                                        registro.plano_tratamento_item_id &&
+                                        todosRegistros.some(function(item) {
+                                            return item.tipo === 'estado' &&
+                                                Number(item.id) === Number(registro.estado_historico_id);
+                                        })
+                                    ) {
+                                        return false;
+                                    }
+
+                                    const estadosGerais = [
+                                        'higido',
+                                        'carie',
+                                        'fraturado',
+                                        'restaurado',
+                                        'ausente',
+                                        'extraido',
+                                        'em_tratamento',
+                                        'implante'
+                                    ];
+
+                                    // Evita duplicar o estado geral no histórico.
+                                    // A mudança de estado é exibida pelo registro de tipo "estado".
+                                    if (
+                                        registro.tipo === 'superficie' &&
+                                        registro.superficie === 'geral' &&
+                                        estadosGerais.includes(registro.condicao) &&
+                                        !registro.plano_tratamento_item_id
                                     ) {
                                         return false;
                                     }
@@ -2826,38 +3650,56 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                                 const ehImplante =
                                     registro.tipo === 'implante';
+                                const ehTratamento = registro.tipo === 'tratamento';
+
+                                const estaArquivado =
+                                    Number(registro.arquivado) === 1;
+
+                                const rotuloArquivamento = estaArquivado ?
+                                    (
+                                        registro.motivo_arquivamento === 'substituido' ?
+                                        'Substituído' :
+                                        'Motivo indeterminado'
+                                    ) :
+                                    '';
 
 
                                 html += `
-            <div class="odontograma-historico-item">
+    <div class="odontograma-historico-item ${registro.plano_tratamento_item_id ? 'registro-vinculado-plano' : ''}">
 
-                <div class="odontograma-historico-header">
+                        <div class="odontograma-historico-header">
 
-                    <strong>
-    ${escapeHtml(
-        ehImplante
-            ? (
-                implanteNomes[registro.condicao] ||
-                registro.condicao ||
-                'Status do implante'
-            )
-            : (
-                estadoNomes[registro.condicao] ||
-                registro.condicao ||
-                'Registro'
-            )
-    )}
-</strong>
+    <strong>
+        ${escapeHtml(
+            ehTratamento
+                ? (registro.plano_tratamento_descricao || registro.condicao || 'Tratamento')
+                : ehImplante
+                    ? (implanteNomes[registro.condicao] || registro.condicao || 'Status do implante')
+                    : (estadoNomes[registro.condicao] || registro.condicao || 'Registro')
+        )}
+    </strong>
 
-                    <span>
-                        ${escapeHtml(
-                            formatarDataOdontograma(
-                                registro.data_registro
-                            )
-                        )}
+    <div class="odontograma-historico-meta">
+
+        <span class="odontograma-historico-data">
+            ${escapeHtml(
+                formatarDataOdontograma(registro.data_registro)
+            )}
+        </span>
+
+        ${
+            estaArquivado
+                ? `
+                    <span class="odontograma-historico-status-arquivado">
+                        ${escapeHtml(rotuloArquivamento)}
                     </span>
+                `
+                : ''
+        }
 
-                </div>
+    </div>
+
+</div>
         `;
 
 
@@ -2871,22 +3713,63 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 
                                     html += `
         <div class="odontograma-historico-superficie">
-
             Estado geral do dente
-
         </div>
     `;
+
+                                    const superficiesAssociadas = registro.superficies_associadas || [];
+
+                                    if (superficiesAssociadas.length > 0) {
+
+                                        const nomesSuperficies = {
+                                            vestibular: 'Vestibular',
+                                            mesial: 'Mesial',
+                                            distal: 'Distal',
+                                            oclusal: 'Oclusal / Incisal',
+                                            lingual_palatina: 'Lingual / Palatina'
+                                        };
+
+                                        superficiesAssociadas.forEach(function(superficie) {
+
+                                            const nomeSuperficie =
+                                                nomesSuperficies[superficie.superficie] ||
+                                                superficie.superficie ||
+                                                'Geral';
+
+                                            const nomeCondicao =
+                                                estadoNomes[superficie.condicao] ||
+                                                superficie.condicao ||
+                                                'Não informado';
+
+                                            const dataSuperficie = superficie.data_registro ?
+                                                formatarDataOdontograma(superficie.data_registro) + ' · ' :
+                                                '';
+
+                                            html += `
+                <div class="odontograma-historico-superficie">
+                    ${escapeHtml(dataSuperficie)}Superfície: ${escapeHtml(nomeSuperficie)}
+                    · Condição: ${escapeHtml(nomeCondicao)}
+                </div>
+            `;
+
+                                            if (
+                                                superficie.observacao &&
+                                                superficie.observacao.trim() !== ''
+                                            ) {
+                                                html += `
+                    <div class="odontograma-historico-observacao">
+                        ${escapeHtml(superficie.observacao)}
+                    </div>
+                `;
+                                            }
+
+                                        });
+                                    }
 
                                 } else if (ehImplante) {
-
-                                    html += `
-        <div class="odontograma-historico-superficie">
-
-            Status do implante
-
-        </div>
-    `;
-
+                                    html += `<div class="odontograma-historico-superficie">Status do implante</div>`;
+                                } else if (ehTratamento) {
+                                    html += `<div class="odontograma-historico-superficie">Tratamento independente · Região: ${escapeHtml(registro.superficie || 'geral')}</div>`;
                                 } else {
 
                                     html += `
@@ -2960,30 +3843,114 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                 |--------------------------------------------------------------------------
                                 */
 
+
+                                if (registro.plano_tratamento_item_id) {
+                                    html += `
+        <div class="historico-plano">
+            <i class="fa-solid fa-tooth" aria-hidden="true"></i>
+            Tratamento: ${
+                escapeHtml(registro.plano_tratamento_descricao || 'Item vinculado')
+            }
+            ${registro.plano_tratamento_status ? `<span class="historico-status-plano status-${escapeHtml(registro.plano_tratamento_status)}">${registro.plano_tratamento_status === 'concluido' ? 'Concluído' : (registro.plano_tratamento_status === 'em_andamento' ? 'Em andamento' : escapeHtml(registro.plano_tratamento_status))}</span>` : ''}
+        </div>
+        <div class="aviso-vinculo-odontograma">
+            <i class="fa-solid fa-link" aria-hidden="true"></i>
+            Este registro está vinculado ao plano de tratamento.
+        </div>
+    `;
+                                }
+
+
+
+                                const tipoRegistro = registro.tipo === 'superficie' ? 'superficie' :
+                                    registro.tipo === 'estado' ? 'estado' :
+                                    registro.tipo === 'implante' ? 'implante' :
+                                    registro.tipo === 'tratamento' ? 'tratamento_dente' : null;
+
+                                const tipoVinculo = registro.tipo === 'tratamento' ?
+                                    'tratamento_dente' :
+                                    (registro.tipo === 'estado' && registro.plano_tratamento_registro_id) ?
+                                    'superficie' :
+                                    registro.tipo === 'superficie' ?
+                                    'superficie' :
+                                    null;
+
+                                const idVinculo = registro.tipo === 'estado' && registro.plano_tratamento_registro_id ?
+                                    Number(registro.plano_tratamento_registro_id) :
+                                    Number(registro.id);
+
+                                const podeArquivar = !estaArquivado;
+
+                                // Uma superfície substituída também pode ser arquivada
+                                // manualmente caso tenha sido cadastrada por engano.
+                                // O endpoint apenas troca o motivo do arquivamento,
+                                // preservando o registro e sem reativar outras superfícies.
+                                const podeArquivarSubstituido =
+                                    registro.tipo === 'superficie' &&
+                                    estaArquivado &&
+                                    registro.motivo_arquivamento === 'substituido';
+
+                                const podeClassificarComoManual =
+                                    registro.tipo === 'superficie' &&
+                                    estaArquivado &&
+                                    registro.motivo_arquivamento !== 'substituido' &&
+                                    registro.motivo_arquivamento !== 'encerrado_por_estado' &&
+                                    registro.motivo_arquivamento !== 'arquivado_manual';
+
                                 if (
-                                    !ehEstadoGeral &&
-                                    registro.plano_tratamento_item_id
+                                    tipoRegistro &&
+                                    Number(registro.id) > 0 &&
+                                    (podeArquivar || podeArquivarSubstituido || podeClassificarComoManual)
                                 ) {
+                                    const acaoHistorico = podeArquivarSubstituido ?
+                                        'arquivar_substituido' :
+                                        (podeClassificarComoManual ? 'classificar_manual' : 'arquivar');
 
                                     html += `
-                <div class="odontograma-historico-vinculo">
+        <div class="historico-item-acoes">
+            <button
+                type="button"
+                class="btn-arquivar-registro-dente"
+                data-acao="${acaoHistorico}"
+                data-registro-id="${Number(registro.id)}"
+                data-tipo-registro="${tipoRegistro}"
+                data-registro-vinculado-id="${registro.plano_tratamento_registro_id ? Number(registro.plano_tratamento_registro_id) : 0}">
+                <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                Arquivar
+            </button>
+        </div>
+    `;
+                                }
 
-                    Plano de tratamento #
-                    ${escapeHtml(
-                        String(
-                            registro.plano_tratamento_item_id
-                        )
-                    )}
 
-                </div>
-            `;
-
+                                // Permite remover somente o vínculo com o plano.
+                                // O registro clínico permanece no histórico,
+                                // esteja ativo ou arquivado.
+                                if (
+                                    registro.plano_tratamento_item_id &&
+                                    tipoVinculo &&
+                                    Number.isInteger(idVinculo) &&
+                                    idVinculo > 0
+                                ) {
+                                    html += `
+        <div class="historico-item-acoes">
+            <button
+                type="button"
+                class="btn-excluir-vinculo-plano"
+                data-registro-id="${idVinculo}"
+                data-tipo-registro="${tipoVinculo}">
+                <i class="fa-solid fa-link-slash" aria-hidden="true"></i>
+                Desvincular do plano
+            </button>
+        </div>
+    `;
                                 }
 
 
                                 html += `
-            </div>
-        `;
+    </div>
+`;
+
 
                             });
 
@@ -2996,11 +3963,489 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                         }
 
 
+
+                        function renderizarHistoricoTratamentosGerais() {
+                            const container = document.getElementById(
+                                'modalHistoricoTratamentosGerais'
+                            );
+
+                            if (!container) return;
+
+                            const tratamentos = odontogramaTratamentosGerais || [];
+
+                            if (tratamentos.length === 0) {
+                                container.className = 'odontograma-modal-historico-vazio';
+                                container.textContent =
+                                    'Nenhum tratamento de arcada completa registrado.';
+                                return;
+                            }
+
+                            container.className =
+                                'odontograma-modal-historico-lista odontograma-historico-geral-lista';
+
+                            container.innerHTML = tratamentos.map(tratamento => {
+                                const arquivado = Number(tratamento.arquivado) === 1;
+                                const vinculado = Number(tratamento.plano_tratamento_item_id) > 0;
+
+                                const data = tratamento.data_registro ?
+                                    new Date(
+                                        tratamento.data_registro.replace(' ', 'T')
+                                    ).toLocaleString('pt-BR') :
+                                    'Data não informada';
+
+                                return `
+            <div class="historico-item historico-tratamento-geral-item
+                ${vinculado ? 'registro-vinculado-plano' : ''}
+                ${arquivado ? 'registro-arquivado' : ''}">
+
+                <strong>${escapeHtml(tratamento.descricao)}</strong>
+
+                ${arquivado ? `
+                    <span class="historico-status-arquivado">
+                        Arquivado
+                    </span>
+                ` : ''}
+
+                ${vinculado && tratamento.plano_tratamento_status ? `
+                    <span class="historico-status-plano">
+                        ${escapeHtml(tratamento.plano_tratamento_status)}
+                    </span>
+                ` : ''}
+
+                <div>
+                    Região: ${escapeHtml(
+                        tratamento.regiao || 'Arcada completa'
+                    )}
+                </div>
+
+                <div>
+                    Data: ${escapeHtml(data)}
+                </div>
+
+                ${tratamento.observacao ? `
+                    <div>
+                        Observação: ${escapeHtml(tratamento.observacao)}
+                    </div>
+                ` : ''}
+
+                <div class="historico-item-acoes">
+
+                    ${!arquivado ? `
+                        <button
+                            type="button"
+                            class="btn-excluir-tratamento-geral"
+                            data-registro-id="${Number(tratamento.id)}">
+                            <i class="fa-solid fa-box-archive"
+                               aria-hidden="true"></i>
+                            Arquivar
+                        </button>
+                    ` : ''}
+
+                    ${vinculado ? `
+                        <button
+                            type="button"
+                            class="btn-excluir-vinculo-plano"
+                            data-registro-id="${Number(tratamento.id)}"
+                            data-tipo-registro="tratamento_geral">
+                            <i class="fa-solid fa-link-slash"
+                               aria-hidden="true"></i>
+                            Desvincular do plano
+                        </button>
+                    ` : ''}
+
+                </div>
+            </div>
+        `;
+                            }).join('');
+                        }
+
+
+
+                        document.getElementById('modalHistoricoTratamentosGerais')
+                            ?.addEventListener('click', async function(event) {
+                                const botao = event.target.closest(
+                                    '.btn-excluir-tratamento-geral'
+                                );
+
+                                if (!botao) {
+                                    return;
+                                }
+
+                                const registroId = Number(botao.dataset.registroId);
+
+                                if (!Number.isInteger(registroId) || registroId <= 0) {
+                                    alert('Registro de tratamento inválido.');
+                                    return;
+                                }
+
+                                if (!confirm('Deseja arquivar este tratamento do histórico?')) {
+                                    return;
+                                }
+
+                                const dados = new FormData();
+
+                                dados.append(
+                                    'csrf_token',
+                                    '<?= htmlspecialchars(
+                                            $_SESSION['csrf_token'] ?? '',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>'
+                                );
+
+                                dados.append('acao', 'arquivar');
+                                dados.append('tipo_registro', 'tratamento_geral');
+                                dados.append('prontuario_id', '<?= (int)$id ?>');
+                                dados.append('registro_id', String(registroId));
+
+                                botao.disabled = true;
+
+                                try {
+                                    const resposta = await fetch('excluir_odontograma.php', {
+                                        method: 'POST',
+                                        body: dados
+                                    });
+
+                                    const resultado = await resposta.json();
+
+                                    if (!resposta.ok || !resultado.sucesso) {
+                                        throw new Error(
+                                            resultado.mensagem ||
+                                            'Não foi possível arquivar o tratamento.'
+                                        );
+                                    }
+
+                                    alert(resultado.mensagem);
+
+                                    window.location.reload();
+                                } catch (erro) {
+                                    console.error('Erro ao arquivar tratamento:', erro);
+                                    alert(erro.message || 'Erro ao arquivar o tratamento.');
+                                    botao.disabled = false;
+                                }
+                            });
+
+
+                        document.addEventListener('click', async function(event) {
+                            const botao = event.target.closest('.btn-excluir-vinculo-plano');
+                            if (!botao) return;
+
+                            const registroId = Number(botao.dataset.registroId);
+                            const tipoRegistro = botao.dataset.tipoRegistro;
+                            const tiposPermitidos = [
+                                'tratamento_geral',
+                                'tratamento_dente',
+                                'superficie'
+                            ];
+
+                            if (!Number.isInteger(registroId) || registroId <= 0 ||
+                                !tiposPermitidos.includes(tipoRegistro)) {
+                                alert('Vínculo inválido.');
+                                return;
+                            }
+
+                            if (!confirm(
+                                    'Deseja desvincular este registro do plano de tratamento?\n\n' +
+                                    'O registro clínico, sua condição, observação, data e histórico serão preservados. ' +
+                                    'Somente o vínculo com o plano será removido.'
+                                )) return;
+
+                            const dados = new FormData();
+                            dados.append('acao', 'excluir_vinculo_plano');
+                            dados.append('csrf_token', '<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>');
+                            dados.append('prontuario_id', '<?= (int)$id ?>');
+                            dados.append('registro_id', String(registroId));
+                            dados.append('tipo_registro', tipoRegistro);
+
+                            botao.disabled = true;
+                            try {
+                                const resposta = await fetch('excluir_odontograma.php', {
+                                    method: 'POST',
+                                    body: dados
+                                });
+                                const resultado = await resposta.json();
+
+                                if (!resposta.ok || !resultado.sucesso) {
+                                    throw new Error(resultado.mensagem || 'Não foi possível excluir o vínculo.');
+                                }
+
+                                alert(resultado.mensagem);
+                                window.location.reload();
+                            } catch (erro) {
+                                console.error('Erro ao excluir vínculo do plano:', erro);
+                                alert(erro.message || 'Erro ao excluir o vínculo.');
+                                botao.disabled = false;
+                            }
+                        });
+
+                        document.getElementById('modalOdontograma')
+                            ?.addEventListener('click', async function(event) {
+                                const botao = event.target.closest(
+                                    '.btn-arquivar-registro-dente'
+                                );
+
+                                if (!botao) return;
+
+                                const registroId = Number(botao.dataset.registroId);
+                                const tipoRegistro = botao.dataset.tipoRegistro;
+
+                                const registroVinculadoId = Number(
+                                    botao.dataset.registroVinculadoId || 0
+                                );
+
+                                const tiposPermitidos = [
+                                    'superficie',
+                                    'estado',
+                                    'implante',
+                                    'tratamento_dente'
+                                ];
+
+                                const acaoBotao =
+                                    botao.dataset.acao || 'arquivar';
+
+                                if (
+                                    !Number.isInteger(registroId) ||
+                                    registroId <= 0 ||
+                                    !tiposPermitidos.includes(tipoRegistro)
+                                ) {
+                                    alert('Registro inválido.');
+                                    return;
+                                }
+
+                                const mensagemConfirmacao =
+                                    acaoBotao === 'arquivar_substituido' ?
+                                    'Este registro foi substituído por uma alteração posterior. ' +
+                                    'Deseja arquivá-lo manualmente por ter sido cadastrado por engano? ' +
+                                    'Ele será preservado no banco, mas deixará de aparecer no histórico.' :
+                                    acaoBotao === 'classificar_manual' ?
+                                    'Este registro possui motivo de arquivamento indeterminado. ' +
+                                    'Deseja classificá-lo como arquivado manualmente? ' +
+                                    'Ele será preservado no banco, mas deixará de aparecer neste histórico.' :
+                                    'Deseja arquivar este registro do histórico clínico? ' +
+                                    'Ele deixará de aparecer no histórico ativo, mas será preservado.';
+
+                                if (!confirm(mensagemConfirmacao)) {
+                                    return;
+                                }
+
+                                const dados = new FormData();
+
+                                dados.append(
+                                    'csrf_token',
+                                    '<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>'
+                                );
+                                dados.append(
+                                    'acao',
+                                    (acaoBotao === 'classificar_manual' || acaoBotao === 'arquivar_substituido') ?
+                                    'classificar_arquivamento_manual' :
+                                    'arquivar'
+                                );
+                                dados.append('prontuario_id', '<?= (int)$id ?>');
+                                dados.append('registro_id', String(registroId));
+                                dados.append('tipo_registro', tipoRegistro);
+                                dados.append('registro_vinculado_id', String(registroVinculadoId));
+
+                                botao.disabled = true;
+
+                                try {
+                                    const resposta = await fetch('excluir_odontograma.php', {
+                                        method: 'POST',
+                                        body: dados
+                                    });
+
+                                    const resultado = await resposta.json();
+
+                                    if (!resposta.ok || !resultado.sucesso) {
+                                        throw new Error(
+                                            resultado.mensagem ||
+                                            'Não foi possível arquivar o registro.'
+                                        );
+                                    }
+
+                                    alert(resultado.mensagem);
+                                    window.location.reload();
+
+                                } catch (erro) {
+                                    console.error(
+                                        'Erro ao arquivar registro do dente:',
+                                        erro
+                                    );
+
+                                    alert(
+                                        erro.message ||
+                                        'Erro ao arquivar o registro. Tente novamente.'
+                                    );
+
+                                    botao.disabled = false;
+                                }
+                            });
+
+
+
+
+                        document
+                            .getElementById('btnSalvarTratamentoGeral')
+                            ?.addEventListener('click', async function() {
+                                const seletor = document.getElementById(
+                                    'modalPlanoTratamentoGeral'
+                                );
+
+                                const observacao = document.getElementById(
+                                    'observacaoTratamentoGeral'
+                                );
+
+                                const botao = this;
+                                const itemId = seletor.value;
+
+                                if (!itemId) {
+                                    alert('Selecione um tratamento de arcada completa.');
+                                    return;
+                                }
+
+                                const dados = new FormData();
+
+                                dados.append(
+                                    'csrf_token',
+                                    '<?= htmlspecialchars(
+                                            $_SESSION['csrf_token'] ?? '',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>'
+                                );
+
+                                dados.append('tipo_operacao', 'tratamento_geral');
+                                dados.append('prontuario_id', '<?= (int)$id ?>');
+                                dados.append('plano_tratamento_item_id', itemId);
+                                dados.append('observacao', observacao.value.trim());
+
+                                botao.disabled = true;
+                                botao.textContent = 'Salvando...';
+
+                                try {
+                                    const resposta = await fetch('salvar_odontograma.php', {
+                                        method: 'POST',
+                                        body: dados
+                                    });
+
+                                    const resultado = await resposta.json();
+
+                                    if (!resposta.ok || !resultado.sucesso) {
+                                        throw new Error(
+                                            resultado.mensagem ||
+                                            'Não foi possível registrar o tratamento.'
+                                        );
+                                    }
+
+                                    alert(resultado.mensagem);
+
+                                    window.location.reload();
+                                } catch (erro) {
+                                    console.error(
+                                        'Erro ao salvar tratamento geral:',
+                                        erro
+                                    );
+
+                                    alert(erro.message);
+                                } finally {
+                                    botao.disabled = false;
+                                    botao.innerHTML =
+                                        '<i class="fa-solid fa-floppy-disk"></i> Registrar tratamento geral';
+                                }
+                            });
+
+
+
+
                         /*
                         |--------------------------------------------------------------------------
                         | ABRIR MODAL
                         |--------------------------------------------------------------------------
                         */
+
+                        function atualizarItensPlanoPorDente(numeroDente) {
+                            if (!planoTratamentoSelect) {
+                                return;
+                            }
+
+                            const numero = String(numeroDente || '').trim();
+
+                            const primeiroDigito = numero.charAt(0);
+
+                            const regiaoSuperior = ['1', '2', '5', '6'].includes(primeiroDigito);
+                            const regiaoInferior = ['3', '4', '7', '8'].includes(primeiroDigito);
+
+                            let quantidadeCompativel = 0;
+
+                            Array.from(planoTratamentoSelect.options).forEach(function(option) {
+                                if (option.value === '') {
+                                    option.hidden = false;
+                                    option.disabled = false;
+                                    return;
+                                }
+
+                                const regiao = String(option.dataset.regiao || '')
+                                    .normalize('NFD')
+                                    .replace(/[\u0300-\u036f]/g, '')
+                                    .toLowerCase()
+                                    .trim();
+
+                                let compativel = false;
+
+                                // Região não informada: permitir seleção manual.
+                                if (!regiao) {
+                                    compativel = true;
+
+                                } else if (
+                                    regiao.includes('arcada superior') ||
+                                    regiao.includes('superior')
+                                ) {
+                                    compativel = regiaoSuperior;
+
+                                } else if (
+                                    regiao.includes('arcada completa') ||
+                                    regiao.includes('boca toda') ||
+                                    regiao.includes('todos os dentes')
+                                ) {
+                                    compativel = false;
+
+                                } else if (
+                                    regiao.includes('arcada inferior') ||
+                                    regiao.includes('inferior')
+                                ) {
+                                    compativel = regiaoInferior;
+
+                                } else if (regiao === 'geral') {
+                                    compativel = false;
+
+
+                                } else {
+                                    const numeroRegex = new RegExp(
+                                        '(^|[^0-9])' + numero + '([^0-9]|$)'
+                                    );
+
+                                    compativel = numeroRegex.test(regiao);
+                                }
+
+                                option.hidden = !compativel;
+                                option.disabled = !compativel;
+
+                                if (compativel) {
+                                    quantidadeCompativel++;
+                                } else if (option.selected) {
+                                    planoTratamentoSelect.value = '';
+                                }
+                            });
+
+
+                            if (planoTratamentoAjuda) {
+                                planoTratamentoAjuda.textContent =
+                                    quantidadeCompativel > 0 ?
+                                    quantidadeCompativel +
+                                    ' item(ns) compatível(is) com este dente.' :
+                                    'Nenhum item individual compatível encontrado. Verifique a região cadastrada no plano.';
+                            }
+
+                        }
 
                         function abrirModal(dente) {
 
@@ -3010,11 +4455,23 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             const numero =
                                 dente.dataset.numero || '';
 
+                            atualizarItensPlanoPorDente(numero);
+
                             const estado = dente.dataset.estado || 'nao_avaliado';
+                            estadoPersistidoDente = estado;
+
+                            odontogramaDenteSvg.classList.remove('plano-em-andamento', 'plano-concluido');
+                            odontogramaDenteSvg.removeAttribute('data-plano-descricao');
+                            const statusPlanoDente = dente.dataset.tratamentoStatus || '';
+                            if (statusPlanoDente === 'em_andamento' || statusPlanoDente === 'concluido') {
+                                odontogramaDenteSvg.classList.add(statusPlanoDente === 'concluido' ? 'plano-concluido' : 'plano-em-andamento');
+                                odontogramaDenteSvg.setAttribute('data-plano-descricao', dente.dataset.tratamentoDescricao || '');
+                            }
 
                             odontogramaDenteSvg.classList.remove(
                                 'estado-ausente',
-                                'estado-extraido'
+                                'estado-extraido',
+                                'estado-implante'
                             );
 
                             if (estado === 'ausente') {
@@ -3025,12 +4482,18 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                 odontogramaDenteSvg.classList.add('estado-extraido');
                             }
 
+                            if (estado === 'implante') {
+                                odontogramaDenteSvg.classList.add('estado-implante');
+                            }
+
                             const implanteStatusSalvo =
                                 dente.dataset.implanteStatus || 'nao_se_aplica';
 
                             titulo.textContent = 'Dente ' + numero;
                             numeroDente.textContent = numero;
-                            estadoDente.value = estado;
+                            estadoDente.value = estado === 'implante' ? 'nao_avaliado' : estado;
+                            if (modoRegistroSelect) modoRegistroSelect.value = 'estado';
+                            atualizarModoRegistro();
 
                             atualizarSuperficiesPorEstado();
 
@@ -3075,10 +4538,10 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             */
 
                             if (estadoDente) {
-
+                                // Em dentes com implante realizado, o select representa
+                                // a condição clínica da superfície, não o estado geral.
                                 estadoDente.value =
-                                    estado;
-
+                                    estado === 'implante' ? 'nao_avaliado' : estado;
                             }
 
                             if (implanteStatus) {
@@ -3089,6 +4552,8 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             }
 
                             atualizarCampoImplante();
+                            atualizarModoRegistro();
+                            atualizarSuperficiesPorEstado();
 
 
                             /*
@@ -3119,16 +4584,15 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             });
 
                             regioesDente.forEach(function(regiao) {
-
                                 regiao.classList.remove(
                                     'is-selected',
+                                    'estado-nao_avaliado',
                                     'estado-higido',
                                     'estado-carie',
                                     'estado-restaurado',
                                     'estado-fraturado',
                                     'estado-em_tratamento'
                                 );
-
                             });
 
                             /*
@@ -3137,12 +4601,22 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
 |--------------------------------------------------------------------------
 */
 
+                            const estadosClinicosPermitidos = new Set([
+                                'nao_avaliado',
+                                'higido',
+                                'carie',
+                                'restaurado',
+                                'fraturado',
+                                'em_tratamento'
+                            ]);
+
                             const registrosAtuais =
                                 (odontogramaHistorico[denteId] || [])
                                 .filter(function(registro) {
-
-                                    return Number(registro.arquivado) === 0;
-
+                                    // Tratamentos independentes entram no histórico,
+                                    // mas nunca devem ser interpretados como condição clínica.
+                                    return Number(registro.arquivado) === 0 &&
+                                        registro.tipo !== 'tratamento';
                                 });
 
                             if (
@@ -3153,9 +4627,10 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             }
 
 
+
                             /*
                             |--------------------------------------------------------------------------
-                            | 1. ESTADO GERAL — BASE DO DENTE
+                            | 1. ESTADO GERAL — NÃO SOBRESCREVE AS SUPERFÍCIES
                             |--------------------------------------------------------------------------
                             */
 
@@ -3165,43 +4640,11 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     return;
                                 }
 
-                                const superficiesDente = [
-                                    'vestibular',
-                                    'mesial',
-                                    'oclusal',
-                                    'distal',
-                                    'lingual_palatina'
-                                ];
-
-                                superficiesDente.forEach(function(superficie) {
-
-                                    const regiao =
-                                        odontogramaModal.querySelector(
-                                            '[data-superficie-dente="' +
-                                            superficie +
-                                            '"]'
-                                        );
-
-                                    if (!regiao) {
-                                        return;
-                                    }
-
-                                    regiao.classList.remove(
-                                        'estado-nao_avaliado',
-                                        'estado-higido',
-                                        'estado-carie',
-                                        'estado-restaurado',
-                                        'estado-fraturado',
-                                        'estado-em_tratamento'
-                                    );
-
-                                    regiao.classList.add(
-                                        'estado-' + registro.condicao
-                                    );
-
-                                });
+                                // O estado geral não será aplicado às cinco superfícies.
+                                // Cada superfície receberá sua condição no bloco seguinte.
 
                             });
+
 
 
                             /*
@@ -3256,9 +4699,14 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                 |--------------------------------------------------------------------------
                                 */
 
-                                regiao.classList.add(
-                                    'estado-' + registro.condicao
-                                );
+                                // Defesa adicional: só estados clínicos válidos podem
+                                // virar classes CSS. Descrições como "Clareamento dental"
+                                // não são tokens CSS e não representam uma condição clínica.
+                                if (estadosClinicosPermitidos.has(registro.condicao)) {
+                                    regiao.classList.add(
+                                        'estado-' + registro.condicao
+                                    );
+                                }
 
                             });
 
@@ -3270,6 +4718,8 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                             */
 
                             renderizarHistorico(denteId);
+
+                            renderizarHistoricoTratamentosGerais();
 
 
                             /*
@@ -3531,10 +4981,24 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                         );
 
 
-                                    const estado =
-                                        estadoDente ?
-                                        estadoDente.value :
-                                        'nao_avaliado';
+                                    const estadoOriginal = denteSelecionado.dataset.estado || 'nao_avaliado';
+                                    const modoAtual = modoRegistroSelect?.value || 'estado';
+
+                                    if (
+                                        ['ausente', 'extraido'].includes(estadoOriginal) &&
+                                        modoAtual !== 'estado'
+                                    ) {
+                                        alert('Em dentes ausentes ou extraídos, somente o status do implante pode ser alterado.');
+                                        return;
+                                    }
+
+                                    if (
+                                        ['ausente', 'extraido'].includes(estadoOriginal) &&
+                                        estado !== estadoOriginal
+                                    ) {
+                                        alert('Em dentes ausentes ou extraídos, não é permitido alterar o estado geral. Altere somente o status do implante.');
+                                        return;
+                                    }
 
                                     const implanteStatusValor =
                                         implanteStatus ?
@@ -3602,10 +5066,21 @@ $dataAceite = $prontuario['termo_consentimento_aceito_em']
                                     );
 
 
-                                    dados.append(
-                                        'estado_geral',
-                                        estado
-                                    );
+                                    const modoRegistro = modoRegistroSelect?.value || 'estado';
+                                    const estadoSelecionado = estadoDente ? estadoDente.value : 'nao_avaliado';
+                                    const estado = superficiesSelecionadas.length > 0 ?
+                                        estadoOriginal :
+                                        (estadoOriginal === 'implante' ? 'implante' : estadoSelecionado);
+                                    const condicaoSuperficie = estadoSelecionado;
+                                    const itemPlanoSelecionado = document.getElementById('modalPlanoTratamentoItem').value;
+                                    if (modoRegistro !== 'estado' && !itemPlanoSelecionado) {
+                                        alert('Selecione um item concluído do plano de tratamento.');
+                                        return;
+                                    }
+                                    dados.append('modo_registro', modoRegistro);
+                                    dados.append('plano_tratamento_item_id', itemPlanoSelecionado);
+                                    dados.append('estado_geral', estado);
+                                    dados.append('condicao_superficie', condicaoSuperficie);
 
                                     dados.append(
                                         'implante_status',

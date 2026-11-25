@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $descricaoPlano = trim($_POST['descricao'] ?? '');
         $status = $_POST['status'] ?? 'planejamento';
 
+        $itemIds = $_POST['item_id'] ?? [];
         $servicoIds = $_POST['servico_id'] ?? [];
         $descricoes = $_POST['item_descricao'] ?? [];
         $dentes = $_POST['dente_regiao'] ?? [];
@@ -175,6 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $itensNovos = [];
 
         $totalItens = max(
+            count($itemIds),
             count($servicoIds),
             count($descricoes),
             count($dentes),
@@ -186,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         for ($i = 0; $i < $totalItens; $i++) {
 
+            $itemId = (int)($itemIds[$i] ?? 0);
             $servicoId = (int)($servicoIds[$i] ?? 0);
             $descricaoItem = trim($descricoes[$i] ?? '');
             $denteRegiao = trim($dentes[$i] ?? '');
@@ -295,6 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $itensNovos[] = [
+                'id' => $itemId > 0 ? $itemId : null,
                 'servico_id' => $servicoId > 0 ? $servicoId : null,
                 'descricao' => $descricaoItem,
                 'dente_regiao' => $denteRegiao !== ''
@@ -318,70 +322,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /*
         |--------------------------------------------------------------------------
-        | TRANSAÇÃO
+        | TRANSAÇÃO E PRESERVAÇÃO DOS IDs
         |--------------------------------------------------------------------------
         */
 
         $pdo->beginTransaction();
 
+        // Bloqueia o plano durante a edição para evitar alterações concorrentes.
+        $stmt = $pdo->prepare("SELECT paciente_id FROM planos_tratamento WHERE id = ? FOR UPDATE");
+        $stmt->execute([$id]);
+        $pacienteAtualId = (int)$stmt->fetchColumn();
+
+        // Não permite trocar o paciente quando já existem vínculos clínicos.
+        if ($pacienteId !== $pacienteAtualId) {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM odontograma_tratamentos_dentes otd
+                INNER JOIN odontograma_dentes od ON od.id = otd.odontograma_dente_id
+                INNER JOIN planos_tratamento_itens pti ON pti.id = otd.plano_tratamento_item_id
+                WHERE pti.plano_id = ? AND od.prontuario_id = ?
+            ");
+            $stmt->execute([$id, $pacienteAtualId]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                throw new Exception('Não é possível trocar o paciente deste plano porque existem tratamentos vinculados ao odontograma.');
+            }
+        }
+
         $stmt = $pdo->prepare("
             UPDATE planos_tratamento
-            SET
-                paciente_id = ?,
-                titulo = ?,
-                descricao = ?,
-                status = ?
+            SET paciente_id = ?, titulo = ?, descricao = ?, status = ?
             WHERE id = ?
         ");
-
         $stmt->execute([
             $pacienteId,
             $titulo,
-            $descricaoPlano !== ''
-                ? $descricaoPlano
-                : null,
+            $descricaoPlano !== '' ? $descricaoPlano : null,
             $status,
             $id
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Recriar itens
-        |--------------------------------------------------------------------------
-        | Como as etapas ainda estão em planejamento, mantemos uma
-        | operação simples e consistente: remove as etapas atuais
-        | e insere a fotografia atual do formulário.
-        |--------------------------------------------------------------------------
-        */
+        // Carrega os IDs que realmente pertencem a este plano.
+        $stmt = $pdo->prepare("SELECT id FROM planos_tratamento_itens WHERE plano_id = ? FOR UPDATE");
+        $stmt->execute([$id]);
+        $idsAtuais = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $idsEnviados = [];
 
-        $stmt = $pdo->prepare("
-            DELETE FROM planos_tratamento_itens
-            WHERE plano_id = ?
+        foreach ($itensNovos as $item) {
+            if ($item['id'] === null) {
+                continue;
+            }
+            if (!in_array($item['id'], $idsAtuais, true)) {
+                throw new Exception('Uma das etapas informadas não pertence a este plano. Atualize a página e tente novamente.');
+            }
+            if (in_array($item['id'], $idsEnviados, true)) {
+                throw new Exception('Uma etapa foi enviada mais de uma vez. Atualize a página e tente novamente.');
+            }
+            $idsEnviados[] = $item['id'];
+        }
+
+        $stmtUpdate = $pdo->prepare("
+            UPDATE planos_tratamento_itens
+            SET servico_id = ?, descricao = ?, dente_regiao = ?, prioridade = ?,
+                valor_estimado = ?, status = ?, ordem = ?, observacoes = ?
+            WHERE id = ? AND plano_id = ?
         ");
 
-        $stmt->execute([$id]);
-
-        $stmtItem = $pdo->prepare("
+        $stmtInsert = $pdo->prepare("
             INSERT INTO planos_tratamento_itens (
-                plano_id,
-                servico_id,
-                descricao,
-                dente_regiao,
-                prioridade,
-                valor_estimado,
-                status,
-                ordem,
-                observacoes
-            )
-            VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
+                plano_id, servico_id, descricao, dente_regiao, prioridade,
+                valor_estimado, status, ordem, observacoes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         foreach ($itensNovos as $item) {
-
-            $stmtItem->execute([
-                $id,
+            $dados = [
                 $item['servico_id'],
                 $item['descricao'],
                 $item['dente_regiao'],
@@ -390,7 +404,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $item['status'],
                 $item['ordem'],
                 $item['observacoes']
-            ]);
+            ];
+
+            if ($item['id'] !== null) {
+                $stmtUpdate->execute(array_merge($dados, [$item['id'], $id]));
+            } else {
+                $stmtInsert->execute(array_merge([$id], $dados));
+            }
+        }
+
+        // Etapas removidas do formulário devem ser excluídas definitivamente.
+        // Se houver qualquer registro associado no odontograma, bloqueia a operação.
+        $idsRemovidos = array_values(array_diff($idsAtuais, $idsEnviados));
+
+        if ($idsRemovidos) {
+            $stmtVinculos = $pdo->prepare("
+                SELECT
+                    (SELECT COUNT(*) FROM odontograma_tratamentos_dentes
+                     WHERE plano_tratamento_item_id = ?) +
+                    (SELECT COUNT(*) FROM odontograma_registros
+                     WHERE plano_tratamento_item_id = ?) +
+                    (SELECT COUNT(*) FROM odontograma_tratamentos_gerais
+                     WHERE plano_tratamento_item_id = ?) AS total
+            ");
+
+            $stmtExcluir = $pdo->prepare("
+                DELETE FROM planos_tratamento_itens
+                WHERE id = ? AND plano_id = ?
+            ");
+
+            foreach ($idsRemovidos as $idRemovido) {
+                $stmtVinculos->execute([
+                    $idRemovido,
+                    $idRemovido,
+                    $idRemovido
+                ]);
+
+                $totalVinculos = (int)$stmtVinculos->fetchColumn();
+
+                if ($totalVinculos > 0) {
+                    throw new Exception(
+                        'Não foi possível excluir esta etapa porque ela possui '
+                        . 'registro(s) vinculado(s) ao odontograma. Abra o prontuário, '
+                        . 'localize o vínculo destacado e exclua-o definitivamente '
+                        . 'antes de remover a etapa do plano.'
+                    );
+                }
+
+                $stmtExcluir->execute([$idRemovido, $id]);
+            }
         }
 
         $pdo->commit();
@@ -440,6 +502,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $itens = [];
 
         $totalItens = max(
+            count($itemIds),
             count($servicoIds),
             count($descricoes),
             count($dentes),
@@ -452,6 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         for ($i = 0; $i < $totalItens; $i++) {
 
             $itens[] = [
+                'id' => (int)($itemIds[$i] ?? 0),
                 'servico_id' => (int)($servicoIds[$i] ?? 0),
                 'descricao' => trim($descricoes[$i] ?? ''),
                 'dente_regiao' => trim($dentes[$i] ?? ''),
@@ -740,6 +804,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="tratamento-item">
 
+                                <input type="hidden" name="item_id[]" value="<?= (int)$item['id'] ?>">
+
                                 <div class="item-field item-service">
 
                                     <label>
@@ -970,6 +1036,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php if (empty($itens)): ?>
 
                             <div class="tratamento-item">
+
+                                <input type="hidden" name="item_id[]" value="">
 
                                 <div class="item-field item-service">
 
@@ -1277,6 +1345,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'tratamento-item';
 
             div.innerHTML = `
+
+        <input type="hidden" name="item_id[]" value="">
 
         <div class="item-field item-service">
 

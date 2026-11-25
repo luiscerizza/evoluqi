@@ -1,65 +1,92 @@
 <?php
-// funcoes_export.php - Geração de CSV compatível com Excel PT-BR
-if (!function_exists('exportarParaCSV')) {
-    function exportarParaCSV($pdo, $titulo_relatorio, $sql, $params = [], $nome_arquivo = 'exportacao')
-    {
-        // Limpa buffers para evitar conflito com headers
-        while (ob_get_level()) ob_end_clean();
 
-        $nome_arquivo = $nome_arquivo . '_' . date('Ymd_His') . '.csv';
+/**
+ * Exporta uma consulta SQL para CSV compatível com Excel em português/Brasil.
+ *
+ * A consulta deve usar aliases amigáveis para as colunas quando desejado.
+ */
+function exportarParaCSV(
+    PDO $pdo,
+    string $titulo,
+    string $sql,
+    array $params = [],
+    string $nomeArquivo = 'exportacao'
+): void {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
-        // Headers de download
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $nome_arquivo . '"');
-        header('Pragma: no-cache');
-        header('Expires: 0');
+    $linhas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // 🔑 BOM UTF-8 (Obrigatório para o Excel ler acentos corretamente)
-        echo "\xEF\xBB\xBF";
+    $nomeArquivo = preg_replace('/[^a-zA-Z0-9_-]+/', '_', $nomeArquivo);
+    $nomeArquivo = trim($nomeArquivo, '_') ?: 'exportacao';
 
-        $saida = fopen('php://output', 'w');
+    header('Content-Type: text/csv; charset=UTF-8');
+    header(
+        'Content-Disposition: attachment; filename="' .
+            $nomeArquivo . '_' . date('Y-m-d_H-i-s') . '.csv"'
+    );
+    header('Pragma: no-cache');
+    header('Expires: 0');
 
-        // Cabeçalho do relatório
-        fputcsv($saida, [$titulo_relatorio], ';');
-        fputcsv($saida, ['Gerado em: ' . date('d/m/Y H:i:s')], ';');
-        fputcsv($saida, [], ';'); // Linha em branco
+    $saida = fopen('php://output', 'wb');
 
-        // Executa query segura
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // BOM UTF-8 para o Excel reconhecer acentos corretamente.
+    fwrite($saida, "\xEF\xBB\xBF");
 
-        if (empty($dados)) {
-            fputcsv($saida, ['Nenhum dado encontrado com os filtros aplicados.'], ';');
-            fclose($saida);
-            exit;
-        }
-
-        // Cabeçalhos da tabela (formata nomes de colunas)
-        $colunas = array_keys($dados[0]);
-        $cabecalhos = array_map(fn($c) => ucwords(str_replace('_', ' ', $c)), $colunas);
-        fputcsv($saida, $cabecalhos, ';');
-
-        // Dados formatados
-        foreach ($dados as $linha) {
-            $formatada = [];
-            foreach ($linha as $valor) {
-                if ($valor === null) {
-                    $formatada[] = '';
-                } elseif (preg_match('/^\d{4}-\d{2}-\d{2}/', $valor)) {
-                    // Formata datas para dd/mm/yyyy
-                    $formatada[] = date('d/m/Y', strtotime($valor));
-                } elseif (is_numeric($valor)) {
-                    // Formata valores para R$ com vírgula decimal
-                    $formatada[] = number_format($valor, 2, ',', '.');
-                } else {
-                    $formatada[] = $valor;
-                }
-            }
-            fputcsv($saida, $formatada, ';');
-        }
-
+    if (empty($linhas)) {
+        fputcsv($saida, ['Nenhum registro encontrado'], ';');
         fclose($saida);
         exit;
     }
+
+    $cabecalhos = array_keys($linhas[0]);
+    fputcsv($saida, $cabecalhos, ';');
+
+    $statusLabels = [
+        'pendente' => 'Pendente',
+        'parcialmente_aceito' => 'Parcialmente aceito',
+        'aceito' => 'Aceito',
+        'parcialmente_recusado' => 'Parcialmente recusado',
+        'recusado' => 'Recusado'
+    ];
+
+    foreach ($linhas as $linha) {
+        $registro = [];
+
+        foreach ($cabecalhos as $chave) {
+            $valor = $linha[$chave] ?? '';
+            if ($chave === 'Status') {
+                $valor = $statusLabels[$valor] ?? $valor;
+            }
+
+            if (
+                in_array(
+                    $chave,
+                    ['Data de criação', 'Validade'],
+                    true
+                ) && !empty($valor)
+            ) {
+                $timestamp = strtotime((string)$valor);
+                if ($timestamp !== false) {
+                    $valor = date('d/m/Y', $timestamp);
+                }
+            }
+
+            if ($chave === 'Valor total' && is_numeric($valor)) {
+                $valor = 'R$ ' . number_format(
+                    (float)$valor,
+                    2,
+                    ',',
+                    '.'
+                );
+            }
+
+            $registro[] = $valor;
+        }
+
+        fputcsv($saida, $registro, ';');
+    }
+
+    fclose($saida);
+    exit;
 }

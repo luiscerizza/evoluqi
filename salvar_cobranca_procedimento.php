@@ -62,7 +62,8 @@ try {
             paciente_id,
             titulo,
             valor_final,
-            orcamento_id
+            orcamento_id,
+            arquivado
         FROM procedimentos
         WHERE id = ?
         LIMIT 1
@@ -78,6 +79,12 @@ try {
     if (!$procedimento) {
         throw new Exception(
             'Procedimento não encontrado.'
+        );
+    }
+
+    if ((int)$procedimento['arquivado'] === 1) {
+        throw new Exception(
+            'Este procedimento está arquivado e não pode gerar cobrança.'
         );
     }
 

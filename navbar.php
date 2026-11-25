@@ -17,7 +17,7 @@ function menuAtivo($paginas)
 
     <div class="sidebar-logo">
         <a href="index.php">
-            <img src="img/logo.png" alt="Dentech">
+            <img src="img/icon.png" alt="Dentech">
         </a>
     </div>
 

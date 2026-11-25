@@ -9,24 +9,6 @@ require_once 'config/auth.php';
 exigirLogin();
 
 require_once 'conexao/conexao.php';
-require_once 'dompdf/autoload.inc.php';
-
-use Dompdf\Dompdf;
-use Dompdf\Options;
-
-
-// =========================================================
-// CONFIGURAÇÃO DO DOMPDF
-// =========================================================
-
-$options = new Options();
-
-$options->set('defaultFont', 'Helvetica');
-$options->set('isHtml5ParserEnabled', true);
-$options->set('isRemoteEnabled', true);
-
-$dompdf = new Dompdf($options);
-
 
 // =========================================================
 // RECEBER ID DO ORÇAMENTO
@@ -1395,58 +1377,3 @@ body {
 </html>
 ";
 
-
-// =========================================================
-// GERAR PDF
-// =========================================================
-
-$dompdf->loadHtml($html);
-
-$dompdf->setPaper(
-    'A4',
-    'portrait'
-);
-
-$dompdf->render();
-
-
-// =========================================================
-// NOME DO ARQUIVO
-// =========================================================
-
-$nome_paciente = preg_replace(
-    '/[^A-Za-z0-9À-ÿ _-]/u',
-    '',
-    $orc['paciente'] ?? 'Paciente'
-);
-
-
-$nome_paciente = trim(
-    preg_replace(
-        '/\s+/',
-        '_',
-        $nome_paciente
-    )
-);
-
-
-$nome_arquivo =
-    'Orcamento_' .
-    $id_orc .
-    '_' .
-    $nome_paciente .
-    '.pdf';
-
-
-// =========================================================
-// ENVIAR PDF
-// =========================================================
-
-$dompdf->stream(
-    $nome_arquivo,
-    [
-        'Attachment' => true
-    ]
-);
-
-exit;

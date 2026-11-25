@@ -1,6 +1,6 @@
 con_oracle/*.key
 documentacao/
-img/logo.png
+img/icon.png
 .vercel
 .env*
 dry-run.json

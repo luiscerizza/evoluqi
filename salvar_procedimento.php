@@ -436,24 +436,25 @@ try {
         }
 
         $stmt = $pdo->prepare("
-            SELECT
-                id,
-                paciente_id,
-                orcamento_id,
-                plano_item_id,
-                agendamento_id,
-                titulo,
-                descricao,
-                medicamentos,
-                valor_mao_obra,
-                valor_final,
-                data_procedimento
-            FROM procedimentos
-            WHERE id = ?
-              AND paciente_id = ?
-            LIMIT 1
-            FOR UPDATE
-        ");
+    SELECT
+        id,
+        paciente_id,
+        orcamento_id,
+        plano_item_id,
+        agendamento_id,
+        titulo,
+        descricao,
+        medicamentos,
+        valor_mao_obra,
+        valor_final,
+        data_procedimento,
+        arquivado
+    FROM procedimentos
+    WHERE id = ?
+      AND paciente_id = ?
+    LIMIT 1
+    FOR UPDATE
+");
 
         $stmt->execute([
             $procedimento_id,
@@ -467,6 +468,12 @@ try {
 
             throw new Exception(
                 'Procedimento não encontrado.'
+            );
+        }
+        if ((int)$procedimento_antigo['arquivado'] === 1) {
+
+            throw new Exception(
+                'Este procedimento está arquivado e não pode ser editado.'
             );
         }
 
